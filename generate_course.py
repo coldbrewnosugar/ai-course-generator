@@ -12,6 +12,7 @@ Saves notebook to ~/ai-courses/{track}/YYYY-MM-DD.ipynb.
 import re
 import sys
 import json
+import time
 import logging
 import argparse
 import subprocess
@@ -139,10 +140,19 @@ def call_claude(track_name: str, prompt_text: str) -> str | None:
         tmp.write(prompt_text)
         tmp_path = tmp.name
 
-    log.info("Calling Claude CLI (model=%s, prompt_file=%s)", CLAUDE_MODEL, tmp_path)
+    log.info("Calling Claude CLI (model=%s, prompt_file=%s, timeout=%ds)",
+             CLAUDE_MODEL, tmp_path, CLAUDE_TIMEOUT)
+    log.info("System prompt length: %d chars", len(system_prompt))
+
+    import shutil
+    claude_path = shutil.which("claude")
+    log.info("Claude binary: %s", claude_path)
+
+    start_time = time.time()
 
     try:
         with open(tmp_path, "r", encoding="utf-8") as prompt_fh:
+            log.info("Starting subprocess...")
             result = subprocess.run(
                 [
                     "claude", "-p",
@@ -156,6 +166,12 @@ def call_claude(track_name: str, prompt_text: str) -> str | None:
                 timeout=CLAUDE_TIMEOUT,
             )
 
+        elapsed = time.time() - start_time
+        log.info("Claude CLI finished in %.1fs (exit code %d)", elapsed, result.returncode)
+
+        if result.stderr.strip():
+            log.info("Claude stderr: %s", result.stderr[:500])
+
         if result.returncode != 0:
             log.error("Claude CLI exited with code %d: %s",
                       result.returncode, result.stderr[:500])
@@ -163,10 +179,13 @@ def call_claude(track_name: str, prompt_text: str) -> str | None:
 
         output = result.stdout.strip()
         log.info("Claude returned %d characters", len(output))
+        if output:
+            log.info("Response preview: %s...", output[:200])
         return output
 
     except subprocess.TimeoutExpired:
-        log.error("Claude CLI timed out after %ds", CLAUDE_TIMEOUT)
+        elapsed = time.time() - start_time
+        log.error("Claude CLI timed out after %.1fs (limit=%ds)", elapsed, CLAUDE_TIMEOUT)
         return None
     except FileNotFoundError:
         log.error("'claude' command not found — is Claude CLI installed and on PATH?")

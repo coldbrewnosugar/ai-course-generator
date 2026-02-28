@@ -84,8 +84,11 @@ run_track() {
     fi
     echo "   Articles JSON: ${JSON_PATH}"
 
-    echo "   Step 2/3: Generating course notebook..."
+    echo "   Step 2/3: Generating course notebook (this may take 3-5 min)..."
+    local gen_start=$(date +%s)
     NB_PATH=$("${PYTHON}" "${SCRIPT_DIR}/generate_course.py" "${track}" "${JSON_PATH}" | tail -1)
+    local gen_end=$(date +%s)
+    echo "   Course generation took $(( gen_end - gen_start ))s"
 
     if [[ -z "${NB_PATH}" || ! -f "${NB_PATH}" ]]; then
         echo "   ERROR: generate_course.py did not produce a notebook (got: '${NB_PATH}')"
