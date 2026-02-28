@@ -18,9 +18,10 @@ import re
 from datetime import datetime, timezone
 from pathlib import Path
 from html import escape as html_escape
+from urllib.parse import quote
 
 sys.path.insert(0, str(Path(__file__).parent))
-from config import TRACKS, OUTPUT_DIR, SITE_DIR, LOG_DIR
+from config import TRACKS, OUTPUT_DIR, SITE_DIR, LOG_DIR, GITHUB_REPO
 
 # ── Logging ────────────────────────────────────────────────────────────────────
 Path(LOG_DIR).mkdir(parents=True, exist_ok=True)
@@ -575,6 +576,120 @@ body {
   margin-left: 0.5rem;
 }
 
+/* ── Other articles ── */
+.other-articles {
+  margin-top: 2.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border-gray);
+}
+.other-articles h3 {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 0.25rem;
+}
+.other-articles .oa-intro {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin-bottom: 1rem;
+}
+.other-article-card {
+  border: 1px solid var(--border-gray);
+  padding: 1rem 1.25rem;
+  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+.other-article-card:hover {
+  border-color: var(--ink);
+}
+.oa-info {
+  flex: 1;
+  min-width: 0;
+}
+.oa-title {
+  font-weight: 600;
+  font-size: 0.95rem;
+  margin-bottom: 0.15rem;
+}
+.oa-summary {
+  font-size: 0.85rem;
+  color: var(--ink-secondary);
+  margin: 0.15rem 0;
+  line-height: 1.4;
+}
+.oa-meta {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+}
+.oa-votes {
+  display: flex;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+.oa-toggle {
+  display: none;
+}
+.oa-toggle-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px; height: 36px;
+  font-size: 1.1rem;
+  border: 1px solid var(--border-gray);
+  cursor: pointer;
+  transition: all 0.15s;
+  background: var(--light-gray);
+  user-select: none;
+}
+.oa-toggle-label:hover {
+  border-color: var(--ink);
+  background: #fff;
+}
+.oa-toggle:checked + .oa-toggle-label.vote-up {
+  border-color: var(--green);
+  background: rgba(26,135,84,0.1);
+}
+.oa-toggle:checked + .oa-toggle-label.vote-down {
+  border-color: var(--red);
+  background: rgba(230,50,38,0.1);
+}
+.oa-submit-row {
+  margin-top: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+.oa-submit-btn {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 0.6rem 1.5rem;
+  background: var(--ink);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.oa-submit-btn:hover { background: var(--blue); }
+.oa-submit-btn:disabled {
+  background: var(--border-gray);
+  color: var(--muted);
+  cursor: default;
+}
+.oa-submit-hint {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
 /* ── Footer ── */
 .session-footer {
   text-align: center;
@@ -785,7 +900,7 @@ def render_reveal(reveal: dict) -> str:
 def render_agent_interaction(interaction: dict) -> str:
     goal = html_escape(interaction.get("goal", ""))
     hints = interaction.get("hints", [])
-    expected = interaction.get("expected_output", {})
+    expected = interaction.get("expected_output", "")
 
     hints_html = ""
     if hints:
@@ -797,12 +912,22 @@ def render_agent_interaction(interaction: dict) -> str:
         </div>"""
 
     expected_html = ""
-    if expected and expected.get("code"):
-        expected_code = render_code_snippet(expected)
-        expected_html = f"""
+    if expected:
+        if isinstance(expected, dict) and expected.get("code"):
+            # Legacy format: {language, code, caption}
+            expected_code = render_code_snippet(expected)
+            reveal_body = expected_code
+        elif isinstance(expected, str):
+            # New format: plain English description (may contain markdown)
+            reveal_body = md_to_html(expected)
+        else:
+            reveal_body = ""
+
+        if reveal_body:
+            expected_html = f"""
       <details class="reveal">
-        <summary>See what the agent gives back</summary>
-        <div class="reveal-body">{expected_code}</div>
+        <summary>What the agent gives back</summary>
+        <div class="reveal-body">{reveal_body}</div>
       </details>"""
 
     return f"""
@@ -991,9 +1116,130 @@ def render_sources(sources: list) -> str:
     </div>"""
 
 
+def render_other_articles(candidate_articles: list, track_name: str, date_str: str) -> str:
+    """Render the 'other articles' section with vote toggles and a single submit button."""
+    # Filter to non-selected articles only
+    others = [a for a in candidate_articles if not a.get("selected", False)]
+    if not others:
+        return ""
+
+    # Cap at 10 to keep the page reasonable
+    others = others[:10]
+
+    # Build article data for JS
+    articles_js_data = []
+    cards_html = ""
+    for i, art in enumerate(others):
+        title = art.get("title", "(untitled)")
+        source = art.get("source", "")
+        summary = art.get("summary", "")
+        tags = art.get("tags", [])
+        pub = art.get("published", "")
+
+        # Truncate summary to one line (~120 chars)
+        if summary and len(summary) > 120:
+            summary = summary[:117].rsplit(" ", 1)[0] + "..."
+
+        # Format date for display
+        pub_display = ""
+        if pub:
+            try:
+                dt = datetime.fromisoformat(pub)
+                pub_display = dt.strftime("%b %-d")
+            except Exception:
+                pub_display = pub[:10]
+
+        meta_parts = []
+        if source:
+            meta_parts.append(html_escape(source))
+        if pub_display:
+            meta_parts.append(pub_display)
+        meta_str = " · ".join(meta_parts)
+
+        tags_str = ",".join(tags) if tags else ""
+        articles_js_data.append({
+            "title": title,
+            "tags": tags_str,
+            "source": source,
+        })
+
+        summary_html = ""
+        if summary:
+            summary_html = f'\n            <div class="oa-summary">{html_escape(summary)}</div>'
+
+        cards_html += f"""
+        <div class="other-article-card">
+          <div class="oa-info">
+            <div class="oa-title">{html_escape(title)}</div>{summary_html}
+            <div class="oa-meta">{meta_str}</div>
+          </div>
+          <div class="oa-votes">
+            <input type="radio" name="vote_{i}" value="up" id="vote_{i}_up" class="oa-toggle" data-idx="{i}">
+            <label for="vote_{i}_up" class="oa-toggle-label vote-up" title="More like this">&#x1F44D;</label>
+            <input type="radio" name="vote_{i}" value="down" id="vote_{i}_down" class="oa-toggle" data-idx="{i}">
+            <label for="vote_{i}_down" class="oa-toggle-label vote-down" title="Not interested">&#x1F44E;</label>
+          </div>
+        </div>"""
+
+    # Inline JS for collecting votes and opening a single issue
+    articles_json = json.dumps(articles_js_data, ensure_ascii=False)
+    vote_js = f"""
+    (function() {{
+      var articles = {articles_json};
+      var repo = "{GITHUB_REPO}";
+      var track = "{track_name}";
+      var date = "{date_str}";
+
+      var toggles = document.querySelectorAll('.oa-toggle');
+      var btn = document.getElementById('oa-submit');
+      var hint = document.getElementById('oa-hint');
+
+      function updateBtn() {{
+        var any = false;
+        toggles.forEach(function(t) {{ if (t.checked) any = true; }});
+        btn.disabled = !any;
+        hint.textContent = any ? '' : 'Select at least one vote';
+      }}
+      toggles.forEach(function(t) {{ t.addEventListener('change', updateBtn); }});
+
+      btn.addEventListener('click', function() {{
+        var lines = [];
+        for (var i = 0; i < articles.length; i++) {{
+          var up = document.getElementById('vote_' + i + '_up');
+          var down = document.getElementById('vote_' + i + '_down');
+          var vote = '';
+          if (up && up.checked) vote = 'up';
+          if (down && down.checked) vote = 'down';
+          if (vote) {{
+            lines.push(vote + ' | ' + articles[i].title + ' | tags:' + articles[i].tags + ' | source:' + articles[i].source);
+          }}
+        }}
+        if (lines.length === 0) return;
+
+        var body = 'track:' + track + '\\ndate:' + date + '\\n\\n' + lines.join('\\n');
+        var title = 'Votes from ' + date + ' (' + track + ')';
+        var url = 'https://github.com/' + repo + '/issues/new?labels=vote&title=' +
+          encodeURIComponent(title) + '&body=' + encodeURIComponent(body);
+        window.open(url, '_blank');
+      }});
+    }})();"""
+
+    return f"""
+    <div class="other-articles">
+      <h3>What else was in the news</h3>
+      <p class="oa-intro">These articles were also available today. Vote to help shape future sessions.</p>
+      {cards_html}
+      <div class="oa-submit-row">
+        <button id="oa-submit" class="oa-submit-btn" disabled>Submit votes</button>
+        <span id="oa-hint" class="oa-submit-hint">Select at least one vote</span>
+      </div>
+    </div>
+    <script>{vote_js}</script>"""
+
+
 # ── Session page renderer ────────────────────────────────────────────────────
 
-def render_session_html(session_path: Path) -> str | None:
+def render_session_html(session_path: Path, track_name: str = "", date_str: str = "") -> str | None:
     """Read session JSON and render to a full HTML page."""
     try:
         with open(session_path, encoding="utf-8") as fh:
@@ -1001,6 +1247,12 @@ def render_session_html(session_path: Path) -> str | None:
     except Exception as exc:
         log.error("Failed to read session JSON %s: %s", session_path, exc)
         return None
+
+    # Infer track/date from path if not provided
+    if not track_name:
+        track_name = session_path.parent.name
+    if not date_str:
+        date_str = session_path.stem
 
     sections_html = ""
     for idx, section in enumerate(session.get("sections", [])):
@@ -1023,6 +1275,8 @@ def render_session_html(session_path: Path) -> str | None:
         elif section_type == "recap":
             sections_html += render_recap(section)
             sections_html += render_sources(session.get("sources", []))
+            sections_html += render_other_articles(
+                session.get("candidate_articles", []), track_name, date_str)
         else:
             log.warning("Unknown section type '%s' — skipping", section_type)
 
@@ -1061,7 +1315,7 @@ def convert_session_to_html(track_name: str, date_str: str) -> Path | None:
 
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    html = render_session_html(session_path)
+    html = render_session_html(session_path, track_name, date_str)
     if html is None:
         return None
 

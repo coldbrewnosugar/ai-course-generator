@@ -261,8 +261,15 @@ AGENT-FIRST APPROACH:
 - The user never writes code from scratch. They prompt an AI agent (Claude, ChatGPT, etc.) to build things for them.
 - Each step gives a GOAL ("get the agent to build X") and HINTS (guiding questions that help the user think about what to ask for)
 - Hints should provoke thinking, not give answers: "What format should the output be in?" not "Tell it to output JSON"
-- After the hints, show EXPECTED OUTPUT — what a good agent response looks like, so they can compare
+- After the hints, DESCRIBE what the agent should give back in plain English. Optionally include a tiny code snippet (5-10 lines MAX) showing just the key part.
 - "your_turn" sections are prompting challenges — give a new goal and thinking hints, hide a sample prompt behind a reveal
+
+CRITICAL — KEEP CODE MINIMAL:
+- Code blocks must be 5-10 lines max. Most steps should have NO code at all.
+- Explain concepts in plain English with analogies and mental models instead of showing code.
+- The expected_output field should primarily be a plain English description: "The agent will give you a simple web app that takes an image URL and returns a description. The key pieces are the API client setup and the base64 encoding of the image."
+- Only include a code snippet when it's truly essential to understanding (an API call signature, a config example). Never walls of code.
+- If a reader is skimming on their phone, they should still get value from every step.
 
 Use this EXACT structure:
 
@@ -278,7 +285,7 @@ Use this EXACT structure:
      "agent_interactions": [{{
        "goal": "What we want the agent to build for us",
        "hints": ["Guiding question 1?", "What about X?", "Think about Y..."],
-       "expected_output": {{"language": "python", "code": "what the agent would give back", "caption": "What you should get"}}
+       "expected_output": "Plain English description of what the agent gives back. Optionally include a TINY code snippet (5-10 lines max) if essential."
      }}],
      "callouts": [{{"style": "tip", "text": "..."}}],
      "reveals": [{{"label": "Why does this matter?", "body": "deeper explanation"}}]}},
@@ -315,6 +322,50 @@ Section type rules:
 Callout styles: "tip" (blue), "warning" (red), "api-key-note" (yellow)
 
 Output ONLY valid JSON. Make it substantial — this is a real workshop, not a summary."""
+
+
+# ── Candidate article summaries ───────────────────────────────────────────────
+
+SUMMARY_SYSTEM_PROMPT = """You write concise one-line descriptions of AI-related articles and projects.
+Each description should be 10-20 words and explain what the article/project is about in plain language.
+Focus on WHAT it does or WHY it matters, not marketing fluff.
+Output ONLY valid JSON. No markdown fences."""
+
+
+def summarize_candidates(candidates: list[dict]) -> list[dict] | None:
+    """Call Claude to generate one-line summaries for candidate articles."""
+    # Build a simple list of titles + raw summaries for Claude to work with
+    items = []
+    for i, c in enumerate(candidates[:15]):  # cap to keep prompt small
+        raw = c.get("summary", "")
+        if raw and len(raw) > 200:
+            raw = raw[:200] + "..."
+        items.append(f'{i+1}. "{c["title"]}" (source: {c.get("source", "unknown")})')
+        if raw:
+            items.append(f'   Context: {raw}')
+
+    prompt = f"""Write a one-line summary (10-20 words) for each of these articles/projects.
+Make each summary explain what the thing IS or DOES — helpful for someone deciding if they want to read more.
+
+{chr(10).join(items)}
+
+Return a JSON array:
+[
+  {{"title": "exact title from above", "summary": "Your 10-20 word description"}},
+  ...
+]"""
+
+    raw = call_claude(SUMMARY_SYSTEM_PROMPT, prompt, label="summaries", timeout=120)
+    if raw is None:
+        return None
+
+    result = extract_json_from_response(raw)
+    if not isinstance(result, list):
+        log.warning("Candidate summaries: expected list, got %s", type(result))
+        return None
+
+    log.info("Generated summaries for %d candidates", len(result))
+    return result
 
 
 # ── Session validation ────────────────────────────────────────────────────────
@@ -370,6 +421,7 @@ def main():
         payload = json.load(fh)
 
     articles  = payload.get("articles", [])
+    candidate_articles = payload.get("candidate_articles", [])
     date_str  = payload.get("date", datetime.now().strftime("%Y-%m-%d"))
 
     log.info("Loaded %d articles for track '%s' (date=%s)",
@@ -394,7 +446,7 @@ def main():
 
     # ── Step 1: Plan topic ───────────────────────────────────────────────────
     log.info("=" * 60)
-    log.info("STEP 1/2: Planning topic...")
+    log.info("STEP 1/3: Planning topic...")
     plan_prompt = build_plan_prompt(track_name, articles, date_str)
     plan_raw = call_claude(PLAN_SYSTEM_PROMPT, plan_prompt, label="plan")
 
@@ -422,7 +474,7 @@ def main():
 
     # ── Step 2: Generate full session ────────────────────────────────────────
     log.info("=" * 60)
-    log.info("STEP 2/2: Generating full session...")
+    log.info("STEP 2/3: Generating full session...")
     session_prompt = build_session_prompt(track_name, plan, articles, date_str)
     session_raw = call_claude(SESSION_SYSTEM_PROMPT, session_prompt, label="session")
 
@@ -451,6 +503,21 @@ def main():
         # Still save it — partial content is better than fallback
     else:
         log.info("Session validation passed")
+
+    # Attach candidate articles for "other articles" section
+    if candidate_articles:
+        # Generate summaries for non-selected candidates
+        others = [a for a in candidate_articles if not a.get("selected", False)]
+        if others:
+            log.info("=" * 60)
+            log.info("STEP 3: Summarizing %d candidate articles...", len(others))
+            summaries = summarize_candidates(others)
+            if summaries:
+                summary_map = {s["title"]: s["summary"] for s in summaries}
+                for a in candidate_articles:
+                    if a["title"] in summary_map:
+                        a["summary"] = summary_map[a["title"]]
+        session["candidate_articles"] = candidate_articles
 
     total_elapsed = time.time() - total_start
     log.info("=" * 60)

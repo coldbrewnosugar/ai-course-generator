@@ -24,7 +24,61 @@ from bs4 import BeautifulSoup
 from dateutil import parser as dateutil_parser
 
 sys.path.insert(0, str(Path(__file__).parent))
-from config import TRACKS, LOOKBACK_HOURS, MAX_ARTICLES, MAX_ARTICLE_CHARS, LOG_DIR
+from config import TRACKS, LOOKBACK_HOURS, MAX_ARTICLES, MAX_ARTICLE_CHARS, LOG_DIR, BASE_DIR
+
+# ── Tag extraction ────────────────────────────────────────────────────────────
+TAG_KEYWORDS = {
+    "agents": ["agent", "agentic", "autonomous"],
+    "open-source": ["open source", "open-source", "open weight"],
+    "models": ["model release", "new model", "launches", "announces"],
+    "tools": ["tool", "api", "sdk", "library", "framework", "platform"],
+    "technique": ["method", "approach", "architecture", "algorithm"],
+    "vision": ["image", "video", "vision", "diffusion"],
+    "audio": ["speech", "voice", "audio", "music", "tts"],
+    "coding": ["code", "coding", "developer", "programming"],
+    "rag": ["rag", "retrieval", "embedding", "vector"],
+    "fine-tuning": ["fine-tune", "fine-tuning", "lora", "qlora"],
+}
+
+
+def extract_tags(title: str, summary: str = "") -> list[str]:
+    """Extract tags from article title and summary using keyword matching."""
+    text = f"{title} {summary}".lower()
+    tags = []
+    for tag, keywords in TAG_KEYWORDS.items():
+        if any(kw in text for kw in keywords):
+            tags.append(tag)
+    return tags
+
+
+def load_preferences() -> dict:
+    """Load preferences.json if it exists, otherwise return empty prefs."""
+    prefs_path = Path(BASE_DIR) / "preferences.json"
+    if prefs_path.exists():
+        try:
+            with open(prefs_path, encoding="utf-8") as fh:
+                return json.load(fh)
+        except Exception:
+            pass
+    return {"tags": {}, "sources": {}}
+
+
+def score_article(article: dict, preferences: dict) -> float:
+    """Score an article based on tier, preferences, and engagement."""
+    # Tier weight
+    tier = article.get("tier", 2)
+    score = 10.0 if tier == 1 else 5.0
+
+    # Preference tag boost
+    tag_prefs = preferences.get("tags", {})
+    for tag in article.get("tags", []):
+        score += tag_prefs.get(tag, 0)
+
+    # Preference source boost
+    source_prefs = preferences.get("sources", {})
+    score += source_prefs.get(article.get("source", ""), 0)
+
+    return score
 
 # ── Logging ────────────────────────────────────────────────────────────────────
 Path(LOG_DIR).mkdir(parents=True, exist_ok=True)
@@ -184,25 +238,35 @@ def fetch_track_articles(track_name: str) -> list[dict]:
             seen_urls.add(a["url"])
             unique.append(a)
 
-    # Sort: tier 1 first, then newest first within tier
+    # Extract tags for all articles
+    for a in unique:
+        a["tags"] = extract_tags(a["title"], a.get("summary", ""))
+
+    # Load preferences and score articles
+    preferences = load_preferences()
+    for a in unique:
+        a["score"] = score_article(a, preferences)
+
+    # Sort by score (descending), then recency as tiebreaker
     unique.sort(key=lambda a: (
-        a["tier"],
+        -a["score"],
         -(dateutil_parser.parse(a["published"]).timestamp()
           if a["published"] else 0)
     ))
 
-    # Cap total
+    # Cap total for generation, but keep all as candidates
     selected = unique[:MAX_ARTICLES]
-    log.info("Selected %d articles (cap=%d)", len(selected), MAX_ARTICLES)
+    log.info("Selected %d articles (cap=%d), %d total candidates",
+             len(selected), MAX_ARTICLES, len(unique))
 
-    # Fetch full article bodies
+    # Fetch full article bodies for selected articles only
     for i, article in enumerate(selected):
         if article["url"]:
             log.info("  [%d/%d] Fetching body: %s", i + 1, len(selected), article["url"])
             article["body"] = fetch_article_body(article["url"])
             time.sleep(CRAWL_DELAY)
 
-    return selected
+    return selected, unique
 
 
 def main():
@@ -215,13 +279,29 @@ def main():
     date_str   = datetime.now().strftime("%Y-%m-%d")
     out_path   = f"/tmp/ai_course_articles_{track_name}_{date_str}.json"
 
-    articles = fetch_track_articles(track_name)
+    articles, all_candidates = fetch_track_articles(track_name)
+
+    # Build candidate list (without bodies, for "other articles" section)
+    candidate_articles = []
+    selected_urls = {a["url"] for a in articles}
+    for c in all_candidates:
+        candidate_articles.append({
+            "title":     c["title"],
+            "url":       c["url"],
+            "source":    c["source"],
+            "tags":      c.get("tags", []),
+            "published": c["published"],
+            "summary":   c.get("summary", ""),
+            "score":     c.get("score", 0),
+            "selected":  c["url"] in selected_urls,
+        })
 
     payload = {
         "track":   track_name,
         "date":    date_str,
         "count":   len(articles),
         "articles": articles,
+        "candidate_articles": candidate_articles,
     }
 
     with open(out_path, "w", encoding="utf-8") as fh:

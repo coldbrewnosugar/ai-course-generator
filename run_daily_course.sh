@@ -73,7 +73,10 @@ run_track() {
     local track="$1"
     echo ""
     echo "── Track: ${track} ──────────────────────────────────────────────"
-    echo "   Step 1/3: Fetching RSS feeds..."
+    echo "   Step 1/4: Refreshing preferences from votes..."
+    "${PYTHON}" "${SCRIPT_DIR}/preferences.py" || echo "   WARNING: preferences.py failed (continuing anyway)"
+
+    echo "   Step 2/4: Fetching RSS feeds..."
 
     # fetch_feeds.py prints the JSON output path to stdout
     JSON_PATH=$("${PYTHON}" "${SCRIPT_DIR}/fetch_feeds.py" "${track}" | tail -1)
@@ -84,7 +87,7 @@ run_track() {
     fi
     echo "   Articles JSON: ${JSON_PATH}"
 
-    echo "   Step 2/3: Generating workshop session (this may take 3-5 min)..."
+    echo "   Step 3/4: Generating workshop session (this may take 3-5 min)..."
     local gen_start=$(date +%s)
     SESSION_PATH=$("${PYTHON}" "${SCRIPT_DIR}/generate_course.py" "${track}" "${JSON_PATH}" | tail -1)
     local gen_end=$(date +%s)
@@ -97,7 +100,7 @@ run_track() {
     fi
     echo "   Session: ${SESSION_PATH}"
 
-    echo "   Step 3/3: Building HTML..."
+    echo "   Step 4/4: Building HTML..."
     "${PYTHON}" "${SCRIPT_DIR}/build_site.py" "${track}" "${DATE_STR}"
 
     # Cleanup temp JSON
