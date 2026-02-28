@@ -1033,7 +1033,7 @@ def render_session_html(session_path: Path) -> str | None:
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{title} — Tinker
+  <title>{title} — Tinker</title>
   <style>{SESSION_CSS}</style>
 </head>
 <body>
@@ -1465,11 +1465,11 @@ def generate_index_html(site_dir: Path) -> Path:
     # Determine the current week (Mon–Sun containing today)
     today = datetime.now()
     today_str = today.strftime("%Y-%m-%d")
-    weekday_idx = today.weekday()  # 0=Mon
+    weekday_idx = (today.weekday() + 1) % 7  # 0=Sun
     week_start = today - __import__("datetime").timedelta(days=weekday_idx)
 
     # Pre-render the initial week server-side
-    day_names = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"]
+    day_names = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"]
     initial_week_html = ""
     week_start_str = week_start.strftime("%Y-%m-%d")
 
@@ -1533,7 +1533,7 @@ def generate_index_html(site_dir: Path) -> Path:
 const COURSES = __COURSES_JSON__;
 const TRACK_ORDER = __TRACK_ORDER__;
 const TRACK_META = __TRACK_META_JS__;
-const DAY_NAMES = ["MON","TUE","WED","THU","FRI","SAT","SUN"];
+const DAY_NAMES = ["SUN","MON","TUE","WED","THU","FRI","SAT"];
 const TODAY = "__TODAY__";
 
 let refDate = new Date("__WEEK_START__" + "T00:00:00");
@@ -1603,7 +1603,7 @@ function navigate(offset) {
 
 function goToday() {
   const t = new Date(TODAY + "T00:00:00");
-  const wd = t.getDay() === 0 ? 6 : t.getDay() - 1;
+  const wd = t.getDay();
   refDate = new Date(t);
   refDate.setDate(refDate.getDate() - wd);
   renderWeek();
