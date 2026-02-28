@@ -9,6 +9,7 @@ Usage:
 Saves notebook to ~/ai-courses/{track}/YYYY-MM-DD.ipynb.
 """
 
+import re
 import sys
 import json
 import logging
@@ -37,7 +38,7 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(message)s",
     handlers=[
         logging.FileHandler(log_file),
-        logging.StreamHandler(sys.stdout),
+        logging.StreamHandler(sys.stderr),
     ],
 )
 log = logging.getLogger(__name__)
@@ -63,7 +64,7 @@ def build_fallback_notebook(track_name: str, date_str: str, reason: str) -> nbfo
         "language": "python",
         "name": "python3",
     }
-    nb.metadata["language_info"] = {"name": "python", "version": "3.10.0"}
+    nb.metadata["language_info"] = {"name": "python", "version": "3.13.5"}
     return nb
 
 
@@ -191,7 +192,6 @@ def extract_json_from_response(raw: str) -> dict | None:
         pass
 
     # Strip markdown code fences (```json ... ``` or ``` ... ```)
-    import re
     fence_match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", raw, re.DOTALL)
     if fence_match:
         try:
@@ -244,7 +244,7 @@ def build_notebook_from_json(
     }
     nb.metadata["language_info"] = {
         "name": "python",
-        "version": "3.10.0",
+        "version": "3.13.5",
         "mimetype": "text/x-python",
         "codemirror_mode": {"name": "ipython", "version": 3},
     }
@@ -255,7 +255,6 @@ def build_notebook_from_json(
 
 def extract_title(nb: nbformat.NotebookNode, track_label: str, date_str: str) -> str:
     """Pull first H1 from first markdown cell, or generate a default."""
-    import re
     for cell in nb.cells:
         if cell.cell_type == "markdown":
             match = re.search(r"^#\s+(.+)$", cell.source, re.MULTILINE)

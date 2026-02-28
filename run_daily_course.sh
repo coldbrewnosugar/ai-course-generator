@@ -76,7 +76,7 @@ run_track() {
     echo "   Step 1/3: Fetching RSS feeds..."
 
     # fetch_feeds.py prints the JSON output path to stdout
-    JSON_PATH=$("${PYTHON}" "${SCRIPT_DIR}/fetch_feeds.py" "${track}" 2>&1 | tail -1)
+    JSON_PATH=$("${PYTHON}" "${SCRIPT_DIR}/fetch_feeds.py" "${track}" | tail -1)
 
     if [[ -z "${JSON_PATH}" || ! -f "${JSON_PATH}" ]]; then
         echo "   ERROR: fetch_feeds.py did not produce a valid JSON file (got: '${JSON_PATH}')"
@@ -85,7 +85,7 @@ run_track() {
     echo "   Articles JSON: ${JSON_PATH}"
 
     echo "   Step 2/3: Generating course notebook..."
-    NB_PATH=$("${PYTHON}" "${SCRIPT_DIR}/generate_course.py" "${track}" "${JSON_PATH}" 2>&1 | tail -1)
+    NB_PATH=$("${PYTHON}" "${SCRIPT_DIR}/generate_course.py" "${track}" "${JSON_PATH}" | tail -1)
 
     if [[ -z "${NB_PATH}" || ! -f "${NB_PATH}" ]]; then
         echo "   ERROR: generate_course.py did not produce a notebook (got: '${NB_PATH}')"

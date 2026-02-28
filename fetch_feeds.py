@@ -14,6 +14,7 @@ import json
 import time
 import logging
 import argparse
+import calendar
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
@@ -35,7 +36,7 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(message)s",
     handlers=[
         logging.FileHandler(log_file),
-        logging.StreamHandler(sys.stdout),
+        logging.StreamHandler(sys.stderr),
     ],
 )
 log = logging.getLogger(__name__)
@@ -60,7 +61,6 @@ def _parse_date(entry) -> datetime | None:
         t = getattr(entry, attr, None)
         if t:
             try:
-                import calendar
                 ts = calendar.timegm(t)
                 return datetime.fromtimestamp(ts, tz=timezone.utc)
             except Exception:
