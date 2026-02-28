@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# run_daily_course.sh — Master orchestrator for the Daily AI Course Generator
+# run_daily_course.sh — Master orchestrator for Tinker (daily AI workshop generator)
 #
-# Runs all tracks scheduled for today, converts to HTML, pushes to GitHub Pages.
+# Runs all tracks scheduled for today, renders to HTML, pushes to GitHub Pages.
 # Designed to be called by cron at 5:30 AM daily.
 
 set -euo pipefail
@@ -22,7 +22,7 @@ mkdir -p "${LOG_DIR}"
 exec > >(tee -a "${LOG_FILE}") 2>&1
 
 echo "============================================================"
-echo "  AI Course Generator — ${DATE_STR} (day=${DAY_OF_WEEK})"
+echo "  Tinker — ${DATE_STR} (day=${DAY_OF_WEEK})"
 echo "  Started at $(date '+%Y-%m-%d %H:%M:%S %Z')"
 echo "============================================================"
 
@@ -84,18 +84,18 @@ run_track() {
     fi
     echo "   Articles JSON: ${JSON_PATH}"
 
-    echo "   Step 2/3: Generating course notebook (this may take 3-5 min)..."
+    echo "   Step 2/3: Generating workshop session (this may take 3-5 min)..."
     local gen_start=$(date +%s)
-    NB_PATH=$("${PYTHON}" "${SCRIPT_DIR}/generate_course.py" "${track}" "${JSON_PATH}" | tail -1)
+    SESSION_PATH=$("${PYTHON}" "${SCRIPT_DIR}/generate_course.py" "${track}" "${JSON_PATH}" | tail -1)
     local gen_end=$(date +%s)
-    echo "   Course generation took $(( gen_end - gen_start ))s"
+    echo "   Session generation took $(( gen_end - gen_start ))s"
 
-    if [[ -z "${NB_PATH}" || ! -f "${NB_PATH}" ]]; then
-        echo "   ERROR: generate_course.py did not produce a notebook (got: '${NB_PATH}')"
+    if [[ -z "${SESSION_PATH}" || ! -f "${SESSION_PATH}" ]]; then
+        echo "   ERROR: generate_course.py did not produce a session (got: '${SESSION_PATH}')"
         rm -f "${JSON_PATH}"
         return 1
     fi
-    echo "   Notebook: ${NB_PATH}"
+    echo "   Session: ${SESSION_PATH}"
 
     echo "   Step 3/3: Building HTML..."
     "${PYTHON}" "${SCRIPT_DIR}/build_site.py" "${track}" "${DATE_STR}"
@@ -152,7 +152,7 @@ if [[ ${#TRACKS_RUN[@]} -gt 0 ]]; then
         if git diff --cached --quiet; then
             echo "   No changes to commit."
         else
-            COMMIT_MSG="Courses: ${DATE_STR} | tracks: ${TRACKS_RUN[*]}"
+            COMMIT_MSG="Sessions: ${DATE_STR} | tracks: ${TRACKS_RUN[*]}"
             git commit -m "${COMMIT_MSG}"
             git push
             echo "   ✓ Pushed to GitHub Pages"

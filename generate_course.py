@@ -1,17 +1,16 @@
 #!/usr/bin/env python3
 """
-generate_course.py — Call Claude CLI to generate a course, then build a Jupyter Notebook.
+generate_course.py — Call Claude CLI to generate a workshop session JSON.
 
-Uses a multi-call strategy:
-  1. Planning call: pick topics from articles (fast, small response)
-  2. Per-topic calls: generate one section at a time (parallel-safe, medium response)
-  3. Stitch all sections into one notebook
+Uses a two-call strategy:
+  1. Planning call: pick ONE buildable topic from articles
+  2. Session call: generate the full interactive session JSON
 
 Usage:
     python3 generate_course.py <track_name> <articles_json_path>
     python3 generate_course.py general /tmp/ai_course_articles_general_2026-02-28.json
 
-Saves notebook to ~/ai-courses/{track}/YYYY-MM-DD.ipynb.
+Saves session to ~/ai-courses/{track}/YYYY-MM-DD.json.
 """
 
 import re
@@ -26,12 +25,9 @@ import tempfile
 from datetime import datetime
 from pathlib import Path
 
-import nbformat
-from nbformat.v4 import new_notebook, new_code_cell, new_markdown_cell
-
 sys.path.insert(0, str(Path(__file__).parent))
 from config import (
-    TRACKS, SYSTEM_PROMPTS, OUTPUT_DIR, LOG_DIR,
+    TRACKS, PLAN_SYSTEM_PROMPT, SESSION_SYSTEM_PROMPT, OUTPUT_DIR, LOG_DIR,
     CLAUDE_MODEL, CLAUDE_TIMEOUT
 )
 
@@ -50,32 +46,41 @@ logging.basicConfig(
 )
 log = logging.getLogger(__name__)
 
-# Per-call timeout (each call is smaller now, but give Opus room)
-CALL_TIMEOUT = min(CLAUDE_TIMEOUT, 600)
+# Per-call timeout (give Opus room)
+CALL_TIMEOUT = CLAUDE_TIMEOUT
 
 
-# ── Fallback notebook ──────────────────────────────────────────────────────────
+# ── Fallback session ──────────────────────────────────────────────────────────
 
-def build_fallback_notebook(track_name: str, date_str: str, reason: str) -> nbformat.NotebookNode:
-    """Return a minimal notebook when content generation fails."""
+def build_fallback_session(track_name: str, date_str: str, reason: str) -> dict:
+    """Return a minimal valid session when content generation fails."""
     track_label = TRACKS[track_name]["label"]
-    cells = [
-        new_markdown_cell(f"# {track_label} — {date_str}\n\n"
-                          f"> **Note:** Today's course could not be fully generated.\n\n"
-                          f"**Reason:** {reason}\n\n"
-                          "Please check back tomorrow or run the pipeline manually."),
-        new_code_cell("# Placeholder — no articles were available today\nprint('No content today.')"),
-    ]
-    nb = new_notebook(cells=cells)
-    nb.metadata["course_track"] = track_name
-    nb.metadata["course_date"]  = date_str
-    nb.metadata["kernelspec"]   = {
-        "display_name": "Python 3",
-        "language": "python",
-        "name": "python3",
+    return {
+        "session_title": f"{track_label} — {date_str}",
+        "session_subtitle": "Today's session could not be generated",
+        "estimated_minutes": 5,
+        "tags": [],
+        "sections": [
+            {
+                "type": "hero",
+                "title": f"{track_label} — {date_str}",
+                "subtitle": "Session unavailable"
+            },
+            {
+                "type": "context",
+                "body": f"**Note:** Today's session could not be fully generated.\n\n"
+                        f"**Reason:** {reason}\n\n"
+                        f"Please check back tomorrow or run the pipeline manually."
+            },
+            {
+                "type": "recap",
+                "body": "No content was available today.",
+                "takeaways": ["Check back tomorrow for fresh content"],
+                "next_steps": ["Try running the pipeline manually"]
+            }
+        ],
+        "sources": []
     }
-    nb.metadata["language_info"] = {"name": "python", "version": "3.13.5"}
-    return nb
 
 
 # ── Claude CLI call ────────────────────────────────────────────────────────────
@@ -190,15 +195,11 @@ def build_articles_context(articles: list[dict]) -> str:
     return "\n".join(parts)
 
 
-PLAN_SYSTEM = """You are an AI course planner. Given a set of articles, you pick the best topics for a hands-on Jupyter Notebook course.
-
-Output ONLY valid JSON. No markdown fences. No prose."""
-
 def build_plan_prompt(track_name: str, articles: list[dict], date_str: str) -> str:
     track = TRACKS[track_name]
     articles_text = build_articles_context(articles)
 
-    return f"""# Course Planning — {track['label']} — {date_str}
+    return f"""# Workshop Planning — {track['label']} — {date_str}
 
 **Track focus:** {track['prompt_focus']}
 
@@ -206,138 +207,150 @@ def build_plan_prompt(track_name: str, articles: list[dict], date_str: str) -> s
 {articles_text}
 ---
 
-Pick 2-3 of the most interesting and technically rich topics from these articles.
+Pick the ONE most interesting, buildable topic from these articles. Something someone could actually sit down and hack on.
 
 Return a JSON object:
 {{
-  "course_title": "Overall course title (engaging, specific)",
-  "topics": [
-    {{
-      "title": "Topic title",
-      "article_refs": [1, 2],
-      "key_concepts": ["concept1", "concept2"],
-      "description": "One sentence on what the section will cover"
-    }}
-  ]
+  "topic_title": "What we're building (specific and exciting)",
+  "subtitle": "One line — what you'll walk away with",
+  "article_refs": [1, 2],
+  "tags": ["tag1", "tag2"],
+  "key_concepts": ["concept1", "concept2"],
+  "estimated_minutes": 35,
+  "description": "2-3 sentences on what the session will cover and what we'll build"
 }}
 
 Output ONLY valid JSON."""
 
 
-SECTION_SYSTEM = """You are an expert ML practitioner and educator. You generate ONE section of a hands-on Jupyter Notebook course.
-
-Output ONLY a JSON object with a "cells" array. Each cell has:
-  - "type": "code" or "markdown"
-  - "source": the full cell content as a string
-
-Keep the section focused and concise. Aim for 5-8 cells total.
-
-Output ONLY valid JSON. No markdown fences. No prose."""
-
-def build_section_prompt(track_name: str, topic: dict, articles: list[dict],
-                         date_str: str, section_num: int) -> str:
+def build_session_prompt(track_name: str, plan: dict, articles: list[dict],
+                         date_str: str) -> str:
     track = TRACKS[track_name]
 
     # Only include referenced articles
     ref_articles = []
-    for ref in topic.get("article_refs", []):
+    for ref in plan.get("article_refs", []):
         if 1 <= ref <= len(articles):
             ref_articles.append(articles[ref - 1])
-
     if not ref_articles:
-        ref_articles = articles[:2]
+        ref_articles = articles[:3]
 
     articles_text = build_articles_context(ref_articles)
 
-    return f"""# Section {section_num}: {topic['title']}
+    # Build sources list for the prompt
+    sources_hint = []
+    for art in ref_articles:
+        sources_hint.append(f'  {{"title": "{art["title"]}", "url": "{art.get("url", "")}", "source_name": "{art["source"]}"}}')
+    sources_json = ",\n".join(sources_hint)
 
-**Track:** {track['label']} — {date_str}
-**Focus:** {track['prompt_focus']}
-**Key concepts:** {', '.join(topic.get('key_concepts', []))}
-**Description:** {topic.get('description', '')}
+    return f"""# Workshop Session — {track['label']} — {date_str}
+
+**Topic:** {plan.get('topic_title', 'TBD')}
+**Subtitle:** {plan.get('subtitle', '')}
+**Key concepts:** {', '.join(plan.get('key_concepts', []))}
+**Description:** {plan.get('description', '')}
+**Estimated time:** {plan.get('estimated_minutes', 35)} minutes
 
 ## Reference Articles
 {articles_text}
 ---
 
-Generate this ONE course section with these cells in order:
-1. Section header (markdown) — "## Section {section_num}: {{title}}" with a brief intro
-2. Hook (code) — exciting runnable demo showing the concept
-3. Concept (markdown) — deep explanation with architecture/math details
-4. Exercise (code) — skeleton with TODO comments for the learner
-5. Solution (code) — fully commented working solution
-6. Quiz (markdown) — 2-3 MCQs in HTML <details> tags for self-check
+Generate a complete interactive workshop session as JSON. The session should feel like a study buddy walking someone through building something cool — using AI agents as the tool, not writing code by hand.
 
-Return ONLY a JSON object: {{"cells": [...]}}
-Each cell: {{"type": "code"|"markdown", "source": "..."}}
+AGENT-FIRST APPROACH:
+- The user never writes code from scratch. They prompt an AI agent (Claude, ChatGPT, etc.) to build things for them.
+- Each step gives a GOAL ("get the agent to build X") and HINTS (guiding questions that help the user think about what to ask for)
+- Hints should provoke thinking, not give answers: "What format should the output be in?" not "Tell it to output JSON"
+- After the hints, show EXPECTED OUTPUT — what a good agent response looks like, so they can compare
+- "your_turn" sections are prompting challenges — give a new goal and thinking hints, hide a sample prompt behind a reveal
 
-Be thorough in explanations but keep code focused. Output ONLY valid JSON."""
+Use this EXACT structure:
+
+{{
+  "session_title": "{plan.get('topic_title', 'Workshop Session')}",
+  "session_subtitle": "{plan.get('subtitle', '')}",
+  "estimated_minutes": {plan.get('estimated_minutes', 35)},
+  "tags": {json.dumps(plan.get('tags', []))},
+  "sections": [
+    {{"type": "hero", "title": "...", "subtitle": "..."}},
+    {{"type": "context", "body": "markdown — what happened in the news and why we care"}},
+    {{"type": "step", "step_number": 1, "title": "...", "body": "markdown explanation",
+     "agent_interactions": [{{
+       "goal": "What we want the agent to build for us",
+       "hints": ["Guiding question 1?", "What about X?", "Think about Y..."],
+       "expected_output": {{"language": "python", "code": "what the agent would give back", "caption": "What you should get"}}
+     }}],
+     "callouts": [{{"style": "tip", "text": "..."}}],
+     "reveals": [{{"label": "Why does this matter?", "body": "deeper explanation"}}]}},
+    ... more steps (aim for 3-5 steps) ...,
+    {{"type": "checkpoint", "message": "You should have X working by now"}},
+    {{"type": "decision_point", "question": "Which approach should we use?",
+     "options": [{{"label": "Option A", "correct": true, "explanation": "why"}},
+                 {{"label": "Option B", "correct": false, "explanation": "why not"}}]}},
+    {{"type": "your_turn", "goal": "Now get your agent to do Y — a new challenge",
+     "context": "Brief setup for why this task matters",
+     "hints": ["What does the agent need to know?", "How should you describe the output format?"],
+     "sample_prompt": "A full example prompt the user could have written (hidden behind a reveal)"}},
+    {{"type": "recap", "body": "what we built and why it matters",
+     "takeaways": ["key insight 1", "key insight 2", "key insight 3"],
+     "next_steps": ["what to explore next 1", "what to explore next 2"]}}
+  ],
+  "sources": [
+{sources_json}
+  ]
+}}
+
+Section type rules:
+- MUST start with "hero" and end with "recap"
+- Include at least 3 "step" sections — these are the meat of the workshop
+- Include at least 1 "checkpoint" between steps
+- Include at least 1 "decision_point" to test understanding
+- Include at least 1 "your_turn" for hands-on prompting practice
+- "context" goes right after "hero" — sets the scene from the news
+- Steps should build on each other — each one gets us closer to the finished thing
+- agent_interactions, callouts, and reveals within steps are all optional arrays (can be empty)
+- The expected_output in agent_interactions is what the AI agent would produce — it's reference output, not something the user types
+- Hints should be 2-4 guiding questions that make the user think about their prompt BEFORE seeing the expected output
+
+Callout styles: "tip" (blue), "warning" (red), "api-key-note" (yellow)
+
+Output ONLY valid JSON. Make it substantial — this is a real workshop, not a summary."""
 
 
-# ── Notebook builder ──────────────────────────────────────────────────────────
+# ── Session validation ────────────────────────────────────────────────────────
 
-def build_notebook(
-    course_title: str,
-    section_cells: list[list[dict]],
-    track_name: str,
-    date_str: str,
-    track_label: str,
-) -> nbformat.NotebookNode:
-    """Stitch overview + section cells into one notebook."""
-    nb_cells = []
+def validate_session(session: dict) -> list[str]:
+    """Check session JSON has required structure. Returns list of issues."""
+    issues = []
 
-    # Title cell
-    nb_cells.append(new_markdown_cell(
-        f"# {course_title}\n\n"
-        f"**{track_label}** — {date_str}\n\n"
-        f"*Auto-generated hands-on course from the latest AI research.*"
-    ))
+    if "session_title" not in session:
+        issues.append("Missing session_title")
+    if "sections" not in session or not isinstance(session.get("sections"), list):
+        issues.append("Missing or invalid sections array")
+        return issues
 
-    # Section cells
-    for cells in section_cells:
-        for cell_def in cells:
-            cell_type = cell_def.get("type", "markdown")
-            source = cell_def.get("source", "")
-            if cell_type == "code":
-                nb_cells.append(new_code_cell(source))
-            else:
-                nb_cells.append(new_markdown_cell(source))
+    sections = session["sections"]
+    if len(sections) == 0:
+        issues.append("Empty sections array")
+        return issues
 
-    nb = new_notebook(cells=nb_cells)
-    nb.metadata["course_track"] = track_name
-    nb.metadata["course_date"]  = date_str
-    nb.metadata["course_label"] = track_label
-    nb.metadata["kernelspec"]   = {
-        "display_name": "Python 3",
-        "language": "python",
-        "name": "python3",
-    }
-    nb.metadata["language_info"] = {
-        "name": "python",
-        "version": "3.13.5",
-        "mimetype": "text/x-python",
-        "codemirror_mode": {"name": "ipython", "version": 3},
-    }
-    return nb
+    types = [s.get("type") for s in sections]
 
+    if types[0] != "hero":
+        issues.append("First section must be 'hero'")
+    if types[-1] != "recap":
+        issues.append("Last section must be 'recap'")
+    if "step" not in types:
+        issues.append("Must have at least one 'step' section")
 
-# ── Extract course title from notebook ────────────────────────────────────────
-
-def extract_title(nb: nbformat.NotebookNode, track_label: str, date_str: str) -> str:
-    """Pull first H1 from first markdown cell, or generate a default."""
-    for cell in nb.cells:
-        if cell.cell_type == "markdown":
-            match = re.search(r"^#\s+(.+)$", cell.source, re.MULTILINE)
-            if match:
-                return match.group(1).strip()
-    return f"{track_label} — {date_str}"
+    return issues
 
 
 # ── Main ───────────────────────────────────────────────────────────────────────
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Generate a Jupyter Notebook AI course using Claude CLI."
+        description="Generate a workshop session JSON using Claude CLI."
     )
     parser.add_argument("track",         choices=list(TRACKS.keys()),
                         help="Track name")
@@ -365,110 +378,89 @@ def main():
     # Output path
     out_dir = Path(OUTPUT_DIR) / track_name
     out_dir.mkdir(parents=True, exist_ok=True)
-    out_path = out_dir / f"{date_str}.ipynb"
+    out_path = out_dir / f"{date_str}.json"
 
     # Fallback if no articles
     if len(articles) == 0:
-        log.warning("No articles found — generating fallback notebook")
-        nb = build_fallback_notebook(track_name, date_str, "No recent articles found in RSS feeds.")
-        nbformat.write(nb, str(out_path))
-        log.info("Fallback notebook saved to %s", out_path)
+        log.warning("No articles found — generating fallback session")
+        session = build_fallback_session(track_name, date_str,
+                                         "No recent articles found in RSS feeds.")
+        out_path.write_text(json.dumps(session, indent=2), encoding="utf-8")
+        log.info("Fallback session saved to %s", out_path)
         print(str(out_path))
         return 0
 
     total_start = time.time()
 
-    # ── Step 1: Plan topics ───────────────────────────────────────────────────
+    # ── Step 1: Plan topic ───────────────────────────────────────────────────
     log.info("=" * 60)
-    log.info("STEP 1/2: Planning topics...")
+    log.info("STEP 1/2: Planning topic...")
     plan_prompt = build_plan_prompt(track_name, articles, date_str)
-    plan_raw = call_claude(PLAN_SYSTEM, plan_prompt, label="plan")
+    plan_raw = call_claude(PLAN_SYSTEM_PROMPT, plan_prompt, label="plan")
 
     if plan_raw is None:
         log.error("Planning call failed — fallback")
-        nb = build_fallback_notebook(track_name, date_str, "Planning call failed.")
-        nbformat.write(nb, str(out_path))
+        session = build_fallback_session(track_name, date_str, "Planning call failed.")
+        out_path.write_text(json.dumps(session, indent=2), encoding="utf-8")
         print(str(out_path))
         return 1
 
     plan = extract_json_from_response(plan_raw)
-    if plan is None or "topics" not in plan:
+    if plan is None or "topic_title" not in plan:
         log.error("Could not parse plan JSON — fallback")
         debug_path = Path("/tmp") / f"claude_plan_{track_name}_{date_str}.txt"
         debug_path.write_text(plan_raw, encoding="utf-8")
         log.error("Raw plan saved to %s", debug_path)
-        nb = build_fallback_notebook(track_name, date_str, "Plan JSON parse error.")
-        nbformat.write(nb, str(out_path))
+        session = build_fallback_session(track_name, date_str, "Plan JSON parse error.")
+        out_path.write_text(json.dumps(session, indent=2), encoding="utf-8")
         print(str(out_path))
         return 1
 
-    course_title = plan.get("course_title", f"{track_label} — {date_str}")
-    topics = plan["topics"]
-    log.info("Course title: %s", course_title)
-    log.info("Topics planned: %d", len(topics))
-    for i, t in enumerate(topics, 1):
-        log.info("  Topic %d: %s", i, t.get("title", "?"))
+    log.info("Topic: %s", plan.get("topic_title", "?"))
+    log.info("Subtitle: %s", plan.get("subtitle", "?"))
+    log.info("Tags: %s", plan.get("tags", []))
 
-    # ── Step 2: Generate each section ─────────────────────────────────────────
-    all_section_cells = []
-    for i, topic in enumerate(topics, 1):
-        log.info("-" * 60)
-        log.info("STEP 2/%d: Generating section %d/%d — %s",
-                 len(topics), i, len(topics), topic.get("title", "?"))
+    # ── Step 2: Generate full session ────────────────────────────────────────
+    log.info("=" * 60)
+    log.info("STEP 2/2: Generating full session...")
+    session_prompt = build_session_prompt(track_name, plan, articles, date_str)
+    session_raw = call_claude(SESSION_SYSTEM_PROMPT, session_prompt, label="session")
 
-        section_prompt = build_section_prompt(
-            track_name, topic, articles, date_str, i
-        )
-        section_raw = call_claude(SECTION_SYSTEM, section_prompt,
-                                  label=f"section-{i}")
+    if session_raw is None:
+        log.error("Session generation failed — fallback")
+        session = build_fallback_session(track_name, date_str, "Session generation call failed.")
+        out_path.write_text(json.dumps(session, indent=2), encoding="utf-8")
+        print(str(out_path))
+        return 1
 
-        if section_raw is None:
-            log.warning("Section %d failed — skipping", i)
-            continue
+    session = extract_json_from_response(session_raw)
+    if session is None:
+        log.error("Could not parse session JSON — fallback")
+        debug_path = Path("/tmp") / f"claude_session_{track_name}_{date_str}.txt"
+        debug_path.write_text(session_raw, encoding="utf-8")
+        log.error("Raw session saved to %s", debug_path)
+        session = build_fallback_session(track_name, date_str, "Session JSON parse error.")
+        out_path.write_text(json.dumps(session, indent=2), encoding="utf-8")
+        print(str(out_path))
+        return 1
 
-        section_json = extract_json_from_response(section_raw)
-        if section_json is None:
-            log.warning("Section %d JSON parse failed — skipping", i)
-            debug_path = Path("/tmp") / f"claude_section{i}_{track_name}_{date_str}.txt"
-            debug_path.write_text(section_raw, encoding="utf-8")
-            log.warning("Raw section saved to %s", debug_path)
-            continue
-
-        cells = section_json.get("cells", section_json if isinstance(section_json, list) else [])
-        if not cells:
-            log.warning("Section %d returned empty cells — skipping", i)
-            continue
-
-        log.info("Section %d: got %d cells", i, len(cells))
-        all_section_cells.append(cells)
+    # Validate
+    issues = validate_session(session)
+    if issues:
+        log.warning("Session validation issues: %s", issues)
+        # Still save it — partial content is better than fallback
+    else:
+        log.info("Session validation passed")
 
     total_elapsed = time.time() - total_start
     log.info("=" * 60)
-    log.info("All calls complete in %.1fs — got %d/%d sections",
-             total_elapsed, len(all_section_cells), len(topics))
+    log.info("Session generated in %.1fs", total_elapsed)
+    log.info("Title: %s", session.get("session_title", "?"))
+    log.info("Sections: %d", len(session.get("sections", [])))
 
-    if not all_section_cells:
-        log.error("No sections generated — fallback")
-        nb = build_fallback_notebook(track_name, date_str, "All section calls failed.")
-        nbformat.write(nb, str(out_path))
-        print(str(out_path))
-        return 1
-
-    # ── Stitch notebook ───────────────────────────────────────────────────────
-    nb = build_notebook(course_title, all_section_cells, track_name, date_str, track_label)
-
-    try:
-        nbformat.validate(nb)
-        log.info("Notebook validation passed")
-    except nbformat.ValidationError as exc:
-        log.warning("Notebook validation warning: %s", exc)
-
-    nbformat.write(nb, str(out_path))
-    log.info("Notebook saved to %s (%d cells)", out_path, len(nb.cells))
-
-    title = extract_title(nb, track_label, date_str)
-    log.info("Course title: %s", title)
-
+    # Save
+    out_path.write_text(json.dumps(session, indent=2), encoding="utf-8")
+    log.info("Session saved to %s", out_path)
     print(str(out_path))
     return 0
 
