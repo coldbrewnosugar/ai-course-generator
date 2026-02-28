@@ -44,19 +44,19 @@ log = logging.getLogger(__name__)
 SESSION_CSS = r"""
 @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600;700&display=swap');
 :root {
-  --bg: #ffffff;
-  --ink: #0a0a0a;
-  --ink-secondary: #333;
-  --muted: #888;
-  --red: #E63226;
-  --blue: #1B3F8B;
-  --yellow: #F5B731;
-  --green: #1a8754;
-  --light-gray: #f6f6f6;
-  --border-gray: #e0e0e0;
+  --bg: #FDFAF6;
+  --ink: #2D2A26;
+  --ink-secondary: #4A4641;
+  --muted: #8C8578;
+  --red: #C4533A;
+  --blue: #3D6B99;
+  --yellow: #D4952B;
+  --green: #3A7D5C;
+  --light-gray: #F5F1EB;
+  --border-gray: #DDD5CA;
   --mono: 'Space Mono', monospace;
   --sans: 'DM Sans', system-ui, sans-serif;
-  --border: 2px solid var(--ink);
+  --border: 1px solid var(--border-gray);
   --max-w: 720px;
 }
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -67,7 +67,7 @@ body {
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
   line-height: 1.7;
-  font-size: 17px;
+  font-size: 18px;
 }
 
 /* ── Layout ── */
@@ -96,7 +96,7 @@ body {
 
 /* ── Hero ── */
 .session-hero {
-  border-bottom: 3px solid var(--ink);
+  border-bottom: 1px solid var(--border-gray);
   padding: 2.5rem 0 2rem;
   margin-bottom: 2.5rem;
 }
@@ -111,6 +111,7 @@ body {
   background: var(--red);
   padding: 0.25rem 0.75rem;
   margin-bottom: 1rem;
+  border-radius: 6px;
 }
 .session-hero h1 {
   font-family: var(--mono);
@@ -140,12 +141,13 @@ body {
   border: 1px solid var(--border-gray);
   padding: 0.15rem 0.5rem;
   font-size: 0.65rem;
+  border-radius: 6px;
 }
 
 /* ── Section divider ── */
 .section-divider {
   border: none;
-  border-top: 3px solid var(--ink);
+  border-top: 1px solid var(--border-gray);
   margin: 3rem 0;
 }
 
@@ -155,6 +157,7 @@ body {
   border-left: 4px solid var(--ink);
   padding: 1.5rem 1.75rem;
   margin-bottom: 2.5rem;
+  border-radius: 12px;
 }
 .context-block h2 {
   font-family: var(--mono);
@@ -187,6 +190,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+  border-radius: 12px;
 }
 .step-header h2 {
   font-family: var(--mono);
@@ -207,7 +211,9 @@ body {
   margin: 1.25rem 0;
   background: var(--light-gray);
   border: 1px solid var(--border-gray);
-  border-left: 4px solid var(--blue);
+  border-left: 3px solid var(--blue);
+  border-radius: 12px;
+  overflow: hidden;
 }
 .code-caption {
   display: block;
@@ -245,6 +251,7 @@ body {
   padding: 0.3rem 0.6rem;
   cursor: pointer;
   transition: background 0.15s;
+  border-radius: 8px;
 }
 .copy-btn:hover { background: var(--blue); }
 .copy-btn.copied { background: var(--green); }
@@ -252,21 +259,22 @@ body {
 /* ── Callouts ── */
 .callout {
   border-left: 4px solid;
-  padding: 1rem 1.25rem;
+  padding: 1.25rem 1.5rem;
   margin: 1.25rem 0;
   font-size: 0.95rem;
+  border-radius: 12px;
 }
 .callout-tip {
   border-color: var(--blue);
-  background: rgba(27,63,139,0.05);
+  background: rgba(61,107,153,0.06);
 }
 .callout-warning {
   border-color: var(--red);
-  background: rgba(230,50,38,0.05);
+  background: rgba(196,83,58,0.06);
 }
 .callout-api-key-note {
   border-color: var(--yellow);
-  background: rgba(245,183,49,0.1);
+  background: rgba(212,149,43,0.1);
 }
 .callout-label {
   font-family: var(--mono);
@@ -284,6 +292,8 @@ body {
 .reveal {
   margin: 1rem 0;
   border: 1px solid var(--border-gray);
+  border-radius: 12px;
+  overflow: hidden;
 }
 .reveal summary {
   font-family: var(--mono);
@@ -298,7 +308,7 @@ body {
   gap: 0.5rem;
   transition: background 0.15s;
 }
-.reveal summary:hover { background: #eee; }
+.reveal summary:hover { background: #EAE5DD; }
 .reveal summary::before {
   content: "\25B6";
   font-size: 0.6rem;
@@ -328,6 +338,7 @@ body {
   font-size: 0.85rem;
   font-weight: 700;
   letter-spacing: 0.02em;
+  border-radius: 12px;
 }
 .checkpoint-icon {
   flex-shrink: 0;
@@ -342,9 +353,10 @@ body {
 
 /* ── Decision point ── */
 .decision-point {
-  border: 2px solid var(--ink);
+  border: 1px solid var(--border-gray);
   margin: 2rem 0;
   padding: 1.5rem;
+  border-radius: 12px;
 }
 .decision-point h3 {
   font-family: var(--mono);
@@ -373,6 +385,7 @@ body {
   cursor: pointer;
   transition: all 0.15s;
   font-weight: 500;
+  border-radius: 8px;
 }
 .decision-option label:hover {
   border-color: var(--ink);
@@ -389,25 +402,28 @@ body {
   margin-top: 0.25rem;
   font-size: 0.9rem;
   border-left: 3px solid;
+  border-radius: 8px;
 }
 .decision-option input:checked ~ .decision-feedback {
   display: block;
 }
 .decision-feedback.correct {
   border-color: var(--green);
-  background: rgba(26,135,84,0.05);
+  background: rgba(58,125,92,0.06);
   color: var(--green);
 }
 .decision-feedback.incorrect {
   border-color: var(--red);
-  background: rgba(230,50,38,0.05);
+  background: rgba(196,83,58,0.06);
   color: var(--red);
 }
 
 /* ── Agent interaction ── */
 .agent-interaction {
   margin: 1.5rem 0;
-  border: 2px solid var(--ink);
+  border: 1px solid var(--border-gray);
+  border-radius: 12px;
+  overflow: hidden;
 }
 .agent-goal {
   padding: 1rem 1.25rem;
@@ -426,7 +442,7 @@ body {
 }
 .agent-hints {
   padding: 1rem 1.25rem;
-  background: rgba(27,63,139,0.04);
+  background: rgba(61,107,153,0.04);
   border-bottom: 1px solid var(--border-gray);
 }
 .agent-hints-label {
@@ -461,9 +477,10 @@ body {
 
 /* ── Your turn ── */
 .your-turn {
-  border: 2px solid var(--blue);
+  border: 1px solid var(--blue);
   padding: 1.5rem;
   margin: 2rem 0;
+  border-radius: 12px;
 }
 .your-turn h3 {
   font-family: var(--mono);
@@ -487,7 +504,7 @@ body {
 
 /* ── Recap ── */
 .recap-section {
-  border-top: 3px solid var(--ink);
+  border-top: 1px solid var(--border-gray);
   padding-top: 2.5rem;
   margin-top: 3rem;
 }
@@ -603,6 +620,7 @@ body {
   display: flex;
   align-items: center;
   gap: 1rem;
+  border-radius: 10px;
 }
 .other-article-card:hover {
   border-color: var(--ink);
@@ -647,6 +665,7 @@ body {
   transition: all 0.15s;
   background: var(--light-gray);
   user-select: none;
+  border-radius: 8px;
 }
 .oa-toggle-label:hover {
   border-color: var(--ink);
@@ -654,11 +673,11 @@ body {
 }
 .oa-toggle:checked + .oa-toggle-label.vote-up {
   border-color: var(--green);
-  background: rgba(26,135,84,0.1);
+  background: rgba(58,125,92,0.1);
 }
 .oa-toggle:checked + .oa-toggle-label.vote-down {
   border-color: var(--red);
-  background: rgba(230,50,38,0.1);
+  background: rgba(196,83,58,0.1);
 }
 .oa-submit-row {
   margin-top: 1rem;
@@ -678,6 +697,7 @@ body {
   border: none;
   cursor: pointer;
   transition: background 0.15s;
+  border-radius: 8px;
 }
 .oa-submit-btn:hover { background: var(--blue); }
 .oa-submit-btn:disabled {
@@ -700,7 +720,7 @@ body {
   text-transform: uppercase;
   margin-top: 3rem;
   padding: 1.5rem 0 2.5rem;
-  border-top: 3px solid var(--ink);
+  border-top: 1px solid var(--border-gray);
 }
 .session-footer span { color: var(--ink); font-weight: 700; }
 
@@ -1344,16 +1364,19 @@ def get_course_title(track_name: str, date_str: str) -> str:
 INDEX_CSS = r"""
 @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600;700&display=swap');
 :root {
-  --bg: #ffffff;
-  --ink: #0a0a0a;
-  --ink-secondary: #333;
-  --muted: #888;
-  --red: #E63226;
-  --blue: #1B3F8B;
-  --yellow: #F5B731;
+  --bg: #FDFAF6;
+  --ink: #2D2A26;
+  --ink-secondary: #4A4641;
+  --muted: #8C8578;
+  --red: #C4533A;
+  --blue: #3D6B99;
+  --yellow: #D4952B;
+  --green: #3A7D5C;
+  --light-gray: #F5F1EB;
+  --border-gray: #DDD5CA;
   --mono: 'Space Mono', monospace;
   --sans: 'DM Sans', system-ui, sans-serif;
-  --border: 2px solid var(--ink);
+  --border: 1px solid var(--border-gray);
 }
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 body {
@@ -1374,7 +1397,7 @@ body {
 .header {
   display: flex;
   align-items: stretch;
-  border-bottom: 3px solid var(--ink);
+  border-bottom: 1px solid var(--border-gray);
   margin-top: 2rem;
 }
 .header-brand {
@@ -1382,7 +1405,7 @@ body {
   align-items: center;
   gap: 1rem;
   padding: 1.5rem 1.5rem 1.5rem 0;
-  border-right: 3px solid var(--ink);
+  border-right: 1px solid var(--border-gray);
   flex-shrink: 0;
 }
 .header-mark {
@@ -1455,6 +1478,7 @@ body {
   cursor: pointer;
   display: flex; align-items: center; justify-content: center;
   transition: background 0.15s;
+  border-radius: 8px;
 }
 .week-nav button:hover { background: var(--red); }
 .week-nav .week-label {
@@ -1478,6 +1502,7 @@ body {
   padding: 0.3rem 0.7rem;
   cursor: pointer;
   transition: all 0.15s;
+  border-radius: 6px;
 }
 .week-nav .today-btn:hover {
   color: var(--ink);
@@ -1507,7 +1532,7 @@ body {
   text-align: center;
   padding: 0.6rem 0.4rem 0.15rem;
   color: var(--muted);
-  border-bottom: 1px solid #ddd;
+  border-bottom: 1px solid var(--border-gray);
 }
 .day-num {
   font-family: var(--mono);
@@ -1522,10 +1547,10 @@ body {
   color: #fff;
 }
 .day-col.is-today {
-  box-shadow: inset 0 0 0 3px var(--red);
+  box-shadow: inset 0 0 0 2px var(--red);
 }
 .day-col.empty-day {
-  background: #fafafa;
+  background: #F8F4EE;
 }
 .day-courses {
   flex: 1;
@@ -1543,14 +1568,15 @@ body {
   font-size: 0.68rem;
   font-weight: 500;
   color: var(--ink);
-  border: 1px solid #ddd;
+  border: 1px solid var(--border-gray);
   transition: all 0.15s;
   line-height: 1.25;
   word-break: break-word;
+  border-radius: 8px;
 }
 .course-pill:hover {
   border-color: var(--ink);
-  background: #f5f5f5;
+  background: var(--light-gray);
 }
 .course-pill .pill-shape {
   flex-shrink: 0;
@@ -1560,9 +1586,9 @@ body {
 .course-pill.track-general  { border-left: 3px solid var(--red); }
 .course-pill.track-image-gen { border-left: 3px solid var(--blue); }
 .course-pill.track-audio    { border-left: 3px solid var(--yellow); }
-.course-pill.track-general:hover  { background: rgba(230,50,38,0.06); }
-.course-pill.track-image-gen:hover { background: rgba(27,63,139,0.06); }
-.course-pill.track-audio:hover    { background: rgba(245,183,49,0.06); }
+.course-pill.track-general:hover  { background: rgba(196,83,58,0.08); }
+.course-pill.track-image-gen:hover { background: rgba(61,107,153,0.08); }
+.course-pill.track-audio:hover    { background: rgba(212,149,43,0.08); }
 
 /* ── Legend ── */
 .legend {
@@ -1624,14 +1650,14 @@ footer {
   text-transform: uppercase;
   margin-top: 3rem;
   padding: 1.5rem 0 2.5rem;
-  border-top: 3px solid var(--ink);
+  border-top: 1px solid var(--border-gray);
 }
 footer span { color: var(--ink); font-weight: 700; }
 
 /* ── Responsive ── */
 @media (max-width: 700px) {
   .header { flex-direction: column; }
-  .header-brand { border-right: none; border-bottom: 3px solid var(--ink); padding: 1rem; }
+  .header-brand { border-right: none; border-bottom: 1px solid var(--border-gray); padding: 1rem; }
   .header-shapes { padding: 0.75rem 1rem; justify-content: flex-start; }
   .week-grid {
     grid-template-columns: repeat(7, minmax(80px, 1fr));
@@ -1651,21 +1677,21 @@ footer span { color: var(--ink); font-weight: 700; }
 
 TRACK_META = {
     "general": {
-        "color": "#E63226",
+        "color": "#C4533A",
         "shape": "\u25cf",
         "label_short": "GEN",
         "css_class": "track-general",
         "desc": "LLMs, research papers &amp; coding advances",
     },
     "image-gen": {
-        "color": "#1B3F8B",
+        "color": "#3D6B99",
         "shape": "\u25a0",
         "label_short": "IMG",
         "css_class": "track-image-gen",
         "desc": "Diffusion models, video AI &amp; vision",
     },
     "audio": {
-        "color": "#F5B731",
+        "color": "#D4952B",
         "shape": "\u25b2",
         "label_short": "AUD",
         "css_class": "track-audio",
