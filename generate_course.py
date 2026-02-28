@@ -50,8 +50,8 @@ logging.basicConfig(
 )
 log = logging.getLogger(__name__)
 
-# Per-call timeout (each call is smaller now)
-CALL_TIMEOUT = min(CLAUDE_TIMEOUT, 300)
+# Per-call timeout (each call is smaller now, but give Opus room)
+CALL_TIMEOUT = min(CLAUDE_TIMEOUT, 600)
 
 
 # ── Fallback notebook ──────────────────────────────────────────────────────────

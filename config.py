@@ -17,8 +17,8 @@ MAX_ARTICLES     = 12     # cap per track per run
 MAX_ARTICLE_CHARS = 3500  # truncate body at this length
 
 # ── Claude CLI settings ────────────────────────────────────────────────────────
-CLAUDE_MODEL   = "claude-sonnet-4-6"
-CLAUDE_TIMEOUT = 600  # seconds
+CLAUDE_MODEL   = "claude-opus-4-6"
+CLAUDE_TIMEOUT = 1800  # seconds (30 min — plenty of room for scheduled runs)
 
 # ── Track definitions ──────────────────────────────────────────────────────────
 TRACKS = {
