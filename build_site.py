@@ -113,30 +113,19 @@ def get_course_title(track_name: str, date_str: str) -> str:
 
 # ── Index page generation ──────────────────────────────────────────────────────
 
-INDEX_CSS = """
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500;0,9..144,700;0,9..144,900;1,9..144,400&family=Outfit:wght@300;400;500;600;700&display=swap');
+INDEX_CSS = r"""
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600;700&display=swap');
 :root {
-  --bg: #f6f3ed;
-  --bg-dot: #e0dbd2;
-  --surface: #fffefa;
-  --surface-hover: #faf7f0;
-  --border: #e5e0d5;
-  --border-strong: #cdc6b8;
-  --ink: #1a1a2e;
-  --ink-secondary: #3d3b4a;
-  --muted: #8a8694;
-  --accent: #c03d1a;
-  --accent-hover: #a83415;
-  --accent-surface: rgba(192,61,26,0.04);
-  --track-green: #1a7a4c;
-  --track-green-bg: rgba(26,122,76,0.06);
-  --track-blue: #2563a0;
-  --track-blue-bg: rgba(37,99,160,0.06);
-  --track-violet: #7c3aad;
-  --track-violet-bg: rgba(124,58,173,0.06);
-  --serif: 'Fraunces', 'Georgia', serif;
-  --sans: 'Outfit', system-ui, sans-serif;
-  --radius: 12px;
+  --bg: #ffffff;
+  --ink: #0a0a0a;
+  --ink-secondary: #333;
+  --muted: #888;
+  --red: #E63226;
+  --blue: #1B3F8B;
+  --yellow: #F5B731;
+  --mono: 'Space Mono', monospace;
+  --sans: 'DM Sans', system-ui, sans-serif;
+  --border: 2px solid var(--ink);
 }
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 body {
@@ -147,341 +136,311 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* ── Dot-grid background (notebook paper) ── */
-.page-dots {
-  position: fixed; inset: 0; z-index: 0; pointer-events: none;
-  background-image: radial-gradient(circle, var(--bg-dot) 1px, transparent 1px);
-  background-size: 24px 24px;
-  opacity: 0.5;
-}
-
 .container {
-  max-width: 820px; margin: 0 auto; padding: 0 1.5rem;
-  position: relative; z-index: 1;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
 }
 
-/* ── Hero ── */
-.hero {
-  padding: 5.5rem 0 1.5rem;
-  position: relative;
-}
-.hero-mono {
-  font-family: var(--serif);
-  font-size: 3.8rem;
-  font-weight: 900;
-  font-style: italic;
-  color: var(--accent);
-  line-height: 1;
-  letter-spacing: -0.04em;
-  opacity: 0.12;
-  position: absolute;
-  top: 1.8rem;
-  right: 0;
-  user-select: none;
-  pointer-events: none;
-}
-.hero-badge {
-  display: inline-flex; align-items: center; gap: 0.5rem;
-  font-size: 0.68rem; font-weight: 600;
-  letter-spacing: 0.1em; text-transform: uppercase;
-  color: var(--accent);
-  margin-bottom: 1.25rem;
-}
-.hero-badge::before {
-  content: '';
-  width: 24px; height: 1px;
-  background: var(--accent);
-}
-.hero h1 {
-  font-family: var(--serif);
-  font-size: 3rem;
-  font-weight: 900;
-  line-height: 1.05;
-  letter-spacing: -0.03em;
-  color: var(--ink);
-  max-width: 520px;
-}
-.hero h1 em {
-  font-style: italic;
-  font-weight: 300;
-  color: var(--accent);
-}
-.hero-sub {
-  font-size: 1rem;
-  line-height: 1.7;
-  color: var(--ink-secondary);
-  margin-top: 1.25rem;
-  max-width: 480px;
-  font-weight: 300;
-}
-.hero-rule {
-  width: 100%; height: 1px;
-  background: var(--border);
-  margin: 2.5rem 0 2rem;
-  border: none;
-}
-
-/* ── Section heading ── */
-.section-label {
-  font-family: var(--sans);
-  font-size: 0.68rem; font-weight: 600;
-  letter-spacing: 0.12em; text-transform: uppercase;
-  color: var(--muted);
-  margin-bottom: 1.5rem;
-}
-
-/* ── Track cards ── */
-.tracks { display: flex; flex-direction: column; gap: 1rem; }
-.track-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-left: 4px solid var(--card-color, var(--accent));
-  border-radius: 2px var(--radius) var(--radius) 2px;
-  padding: 1.75rem 1.75rem 1.75rem 1.5rem;
-  position: relative;
-  transition: transform 0.3s cubic-bezier(0.23,1,0.32,1),
-              box-shadow 0.3s cubic-bezier(0.23,1,0.32,1);
-  animation: card-in 0.6s cubic-bezier(0.23,1,0.32,1) both;
-}
-.track-card:nth-child(1) { animation-delay: 0.05s; }
-.track-card:nth-child(2) { animation-delay: 0.15s; }
-.track-card:nth-child(3) { animation-delay: 0.25s; }
-@keyframes card-in {
-  from { opacity: 0; transform: translateY(16px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-.track-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 30px rgba(26,26,46,0.08), 0 2px 8px rgba(26,26,46,0.04);
-}
-.track-card.color-green  { --card-color: var(--track-green); }
-.track-card.color-blue   { --card-color: var(--track-blue); }
-.track-card.color-violet { --card-color: var(--track-violet); }
-
-/* Track number watermark */
-.track-card .track-num {
-  position: absolute;
-  top: 0.75rem; right: 1.25rem;
-  font-family: var(--serif);
-  font-size: 3.2rem;
-  font-weight: 900;
-  line-height: 1;
-  color: var(--card-color, var(--accent));
-  opacity: 0.06;
-  user-select: none;
-  pointer-events: none;
-}
-
-.track-header {
+/* ── Header ── */
+.header {
   display: flex;
-  align-items: flex-start;
-  gap: 0.85rem;
-  margin-bottom: 1.25rem;
+  align-items: stretch;
+  border-bottom: 3px solid var(--ink);
+  margin-top: 2rem;
 }
-.track-icon {
-  width: 38px; height: 38px;
-  border-radius: 8px;
-  display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0;
-  font-size: 1rem;
-  background: var(--card-bg, var(--accent-surface));
-  color: var(--card-color, var(--accent));
-  border: 1px solid color-mix(in srgb, var(--card-color, var(--accent)) 15%, transparent);
-}
-.track-card.color-green  .track-icon { background: var(--track-green-bg); }
-.track-card.color-blue   .track-icon { background: var(--track-blue-bg); }
-.track-card.color-violet .track-icon { background: var(--track-violet-bg); }
-.track-meta { flex: 1; min-width: 0; }
-.track-title {
-  font-family: var(--serif);
-  font-size: 1.15rem; font-weight: 700;
-  letter-spacing: -0.01em;
-  color: var(--ink);
-}
-.track-desc {
-  font-size: 0.8rem; color: var(--muted);
-  margin-top: 0.2rem; font-weight: 400;
-}
-.schedule-tag {
-  font-size: 0.6rem; font-weight: 600;
-  padding: 0.3rem 0.65rem;
-  border-radius: 4px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  white-space: nowrap;
-  margin-top: 0.15rem;
-  flex-shrink: 0;
-}
-.tag-daily  { background: var(--track-green-bg); color: var(--track-green); border: 1px solid color-mix(in srgb, var(--track-green) 18%, transparent); }
-.tag-mwf    { background: var(--track-blue-bg);  color: var(--track-blue);  border: 1px solid color-mix(in srgb, var(--track-blue) 18%, transparent); }
-.tag-tt     { background: var(--track-violet-bg); color: var(--track-violet); border: 1px solid color-mix(in srgb, var(--track-violet) 18%, transparent); }
-
-/* ── Latest course row ── */
-.latest-course {
+.header-brand {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 1rem;
-  padding: 0.9rem 1rem;
-  margin-bottom: 0.75rem;
-  background: var(--surface-hover);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  transition: border-color 0.2s;
+  padding: 1.5rem 1.5rem 1.5rem 0;
+  border-right: 3px solid var(--ink);
+  flex-shrink: 0;
 }
-.latest-course:hover { border-color: var(--border-strong); }
-.latest-info { min-width: 0; }
-.latest-label {
-  font-size: 0.58rem; text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: var(--card-color, var(--accent));
+.header-mark {
+  width: 48px; height: 48px;
+  background: var(--red);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.header-mark span {
+  font-family: var(--mono);
   font-weight: 700;
-}
-.latest-title {
-  font-size: 0.9rem; color: var(--ink);
-  margin-top: 0.2rem; line-height: 1.35;
-  font-weight: 500;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.latest-date {
-  font-size: 0.72rem; color: var(--muted);
-  margin-top: 0.15rem; font-weight: 400;
-}
-.btn {
-  display: inline-flex; align-items: center; gap: 0.35rem;
-  padding: 0.5rem 1rem;
-  border-radius: 6px;
-  font-family: var(--sans);
-  font-size: 0.78rem;
-  font-weight: 600;
-  text-decoration: none;
-  white-space: nowrap;
+  font-size: 1.1rem;
   color: #fff;
-  background: var(--card-color, var(--accent));
-  transition: all 0.2s cubic-bezier(0.23,1,0.32,1);
 }
-.btn:hover {
-  filter: brightness(1.1);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px color-mix(in srgb, var(--card-color, var(--accent)) 25%, transparent);
+.header-text h1 {
+  font-family: var(--mono);
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
 }
-.btn svg { width: 13px; height: 13px; stroke-width: 2.5; }
-
-/* ── Archive ── */
-.archive-toggle {
-  font-size: 0.75rem; font-weight: 500;
+.header-text .tagline {
+  font-size: 0.72rem;
   color: var(--muted);
-  cursor: pointer; user-select: none;
-  padding: 0.3rem 0;
-  display: inline-flex; align-items: center; gap: 0.4rem;
-  transition: color 0.15s;
+  margin-top: 0.2rem;
+  font-weight: 400;
 }
-.archive-toggle:hover { color: var(--ink-secondary); }
-.archive-toggle .chevron {
-  display: inline-block;
-  transition: transform 0.25s cubic-bezier(0.23,1,0.32,1);
-  font-size: 0.55rem;
+.header-shapes {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding: 0 1.5rem;
 }
-details[open] .archive-toggle .chevron { transform: rotate(90deg); }
-.archive-list {
-  list-style: none;
-  margin-top: 0.6rem;
-  padding-top: 0.5rem;
-  border-top: 1px solid var(--border);
+.geo-circle {
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  background: var(--red);
 }
-.archive-list li {
-  display: flex; align-items: center;
-  padding: 0.45rem 0.5rem;
-  margin: 0.1rem 0;
-  border-radius: 6px;
+.geo-square {
+  width: 22px; height: 22px;
+  background: var(--blue);
+}
+.geo-triangle {
+  width: 0; height: 0;
+  border-left: 13px solid transparent;
+  border-right: 13px solid transparent;
+  border-bottom: 24px solid var(--yellow);
+}
+
+/* ── Week navigation ── */
+.week-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   gap: 1rem;
+  padding: 1rem 0;
+  border-bottom: var(--border);
+}
+.week-nav button {
+  font-family: var(--mono);
+  font-size: 1.2rem;
+  font-weight: 700;
+  background: var(--ink);
+  color: #fff;
+  border: none;
+  width: 40px; height: 40px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
   transition: background 0.15s;
 }
-.archive-list li:hover { background: var(--surface-hover); }
-.archive-date {
-  color: var(--muted); font-size: 0.75rem;
-  min-width: 6rem; font-variant-numeric: tabular-nums;
-  font-weight: 400;
+.week-nav button:hover { background: var(--red); }
+.week-nav .week-label {
+  font-family: var(--mono);
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  min-width: 240px;
+  text-align: center;
 }
-.archive-title {
-  font-size: 0.82rem; flex: 1; color: var(--ink-secondary);
-  font-weight: 400;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.archive-link {
-  font-size: 0.72rem; font-weight: 600;
-  color: var(--card-color, var(--accent));
-  text-decoration: none;
-  padding: 0.15rem 0.5rem;
-  border-radius: 4px;
+.week-nav .today-btn {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: none;
+  color: var(--muted);
+  border: 1px solid var(--muted);
+  width: auto;
+  padding: 0.3rem 0.7rem;
+  cursor: pointer;
   transition: all 0.15s;
 }
-.archive-link:hover {
-  background: var(--accent-surface);
-  text-decoration: none;
+.week-nav .today-btn:hover {
+  color: var(--ink);
+  border-color: var(--ink);
+  background: none;
 }
-.empty-state {
-  color: var(--muted); font-size: 0.85rem;
-  padding: 0.5rem 0; font-style: italic;
+
+/* ── Calendar grid ── */
+.week-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  border-left: var(--border);
+  border-bottom: var(--border);
+}
+.day-col {
+  border-right: var(--border);
+  min-height: 160px;
+  display: flex;
+  flex-direction: column;
+}
+.day-header {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  text-align: center;
+  padding: 0.6rem 0.4rem 0.15rem;
+  color: var(--muted);
+  border-bottom: 1px solid #ddd;
+}
+.day-num {
+  font-family: var(--mono);
+  font-size: 1.4rem;
+  font-weight: 700;
+  text-align: center;
+  padding: 0.3rem 0 0.5rem;
+  color: var(--ink);
+}
+.day-col.is-today .day-num {
+  background: var(--ink);
+  color: #fff;
+}
+.day-col.is-today {
+  box-shadow: inset 0 0 0 3px var(--red);
+}
+.day-col.empty-day {
+  background: #fafafa;
+}
+.day-courses {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px;
+}
+.course-pill {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 8px;
+  text-decoration: none;
+  font-size: 0.68rem;
+  font-weight: 500;
+  color: var(--ink);
+  border: 1px solid #ddd;
+  transition: all 0.15s;
+  line-height: 1.25;
+  word-break: break-word;
+}
+.course-pill:hover {
+  border-color: var(--ink);
+  background: #f5f5f5;
+}
+.course-pill .pill-shape {
+  flex-shrink: 0;
+  font-size: 0.85rem;
+  line-height: 1;
+}
+.course-pill.track-general  { border-left: 3px solid var(--red); }
+.course-pill.track-image-gen { border-left: 3px solid var(--blue); }
+.course-pill.track-audio    { border-left: 3px solid var(--yellow); }
+.course-pill.track-general:hover  { background: rgba(230,50,38,0.06); }
+.course-pill.track-image-gen:hover { background: rgba(27,63,139,0.06); }
+.course-pill.track-audio:hover    { background: rgba(245,183,49,0.06); }
+
+/* ── Legend ── */
+.legend {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2rem;
+  padding: 1.25rem 0;
+  border-bottom: var(--border);
+}
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.legend-shape {
+  font-size: 1rem;
+  line-height: 1;
+}
+.legend-item.track-general  .legend-shape { color: var(--red); }
+.legend-item.track-image-gen .legend-shape { color: var(--blue); }
+.legend-item.track-audio    .legend-shape { color: var(--yellow); }
+.legend-swatch {
+  display: inline-block;
+  width: 12px; height: 12px;
+}
+.legend-item.track-general  .legend-swatch { background: var(--red); }
+.legend-item.track-image-gen .legend-swatch { background: var(--blue); }
+.legend-item.track-audio    .legend-swatch { background: var(--yellow); }
+
+/* ── Stats bar ── */
+.stats-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2rem;
+  padding: 0.75rem 0;
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  color: var(--muted);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.stats-bar strong {
+  color: var(--ink);
 }
 
 /* ── Footer ── */
 footer {
   text-align: center;
   color: var(--muted);
-  font-size: 0.7rem;
-  letter-spacing: 0.03em;
-  margin-top: 4rem;
-  padding: 2rem 0 3rem;
-  border-top: 1px solid var(--border);
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-top: 3rem;
+  padding: 1.5rem 0 2.5rem;
+  border-top: 3px solid var(--ink);
 }
-footer .footer-brand {
-  font-family: var(--serif);
-  font-weight: 700; font-style: italic;
-  color: var(--ink-secondary);
-}
+footer span { color: var(--ink); font-weight: 700; }
 
 /* ── Responsive ── */
-@media (max-width: 640px) {
-  .hero { padding: 3.5rem 0 1rem; }
-  .hero h1 { font-size: 2rem; }
-  .hero-mono { font-size: 2.4rem; top: 1.2rem; }
-  .hero-sub { font-size: 0.9rem; }
-  .track-card { padding: 1.25rem 1.25rem 1.25rem 1.15rem; }
-  .track-card .track-num { font-size: 2.2rem; }
-  .latest-course {
-    flex-direction: column; align-items: stretch;
+@media (max-width: 700px) {
+  .header { flex-direction: column; }
+  .header-brand { border-right: none; border-bottom: 3px solid var(--ink); padding: 1rem; }
+  .header-shapes { padding: 0.75rem 1rem; justify-content: flex-start; }
+  .week-grid {
+    grid-template-columns: repeat(7, minmax(80px, 1fr));
+    overflow-x: auto;
   }
-  .btn { justify-content: center; }
-  .archive-list li { flex-wrap: wrap; gap: 0.25rem; }
-  .archive-date { min-width: auto; }
-  .track-header { flex-wrap: wrap; }
+  .day-col { min-height: 120px; }
+  .legend { flex-wrap: wrap; gap: 1rem; }
+  .week-nav .week-label { min-width: auto; font-size: 0.75rem; }
+}
+@media (max-width: 480px) {
+  .header-text h1 { font-size: 1.2rem; }
+  .week-grid {
+    grid-template-columns: repeat(7, minmax(65px, 1fr));
+  }
 }
 """
 
-SCHEDULE_TAG_MAP = {
-    "daily":       ("Daily", "tag-daily"),
-    "mon,wed,fri": ("Mon · Wed · Fri", "tag-mwf"),
-    "tue,thu":     ("Tue · Thu", "tag-tt"),
-}
-
 TRACK_META = {
     "general": {
-        "icon_char":   "&#9671;",    # diamond outline
-        "card_class":  "color-green",
-        "num":         "01",
+        "color": "#E63226",
+        "shape": "\u25cf",
+        "label_short": "GEN",
+        "css_class": "track-general",
         "desc": "LLMs, research papers &amp; coding advances",
     },
     "image-gen": {
-        "icon_char":   "&#9633;",    # square outline
-        "card_class":  "color-blue",
-        "num":         "02",
+        "color": "#1B3F8B",
+        "shape": "\u25a0",
+        "label_short": "IMG",
+        "css_class": "track-image-gen",
         "desc": "Diffusion models, video AI &amp; vision",
     },
     "audio": {
-        "icon_char":   "&#9835;",    # music note
-        "card_class":  "color-violet",
-        "num":         "03",
+        "color": "#F5B731",
+        "shape": "\u25b2",
+        "label_short": "AUD",
+        "css_class": "track-audio",
         "desc": "TTS, speech synthesis &amp; music generation",
     },
 }
@@ -500,12 +459,12 @@ def _format_date_display(date_str: str) -> str:
 
 def generate_index_html(site_dir: Path) -> Path:
     """
-    Scan site_dir for all HTML course files, build and write index.html.
+    Scan site_dir for all HTML course files, build a weekly calendar index.
     Returns the index path.
     """
-    # Collect all course HTML files
-    # Structure: site_dir/{track}/{date}.html
+    # Collect all course HTML files: {date_str: {track: {title, url}}}
     courses: dict[str, list[dict]] = {t: [] for t in TRACK_ORDER}
+    all_dates: dict[str, dict] = {}  # date -> track -> {title, rel_path}
 
     for track_name in TRACK_ORDER:
         track_dir = site_dir / track_name
@@ -516,81 +475,189 @@ def generate_index_html(site_dir: Path) -> Path:
             title    = get_course_title(track_name, date_str)
             rel_path = f"{track_name}/{html_file.name}"
             courses[track_name].append({
-                "date":     date_str,
-                "title":    title,
-                "rel_path": rel_path,
+                "date": date_str, "title": title, "rel_path": rel_path,
             })
+            if date_str not in all_dates:
+                all_dates[date_str] = {}
+            all_dates[date_str][track_name] = {
+                "title": title, "url": rel_path,
+            }
 
-    # Count total courses
     total_courses = sum(len(v) for v in courses.values())
 
-    # Build HTML cards
-    cards_html = ""
+    # Build JSON blob for client-side navigation
+    courses_json = json.dumps(all_dates, separators=(",", ":"))
+
+    # Determine the current week (Mon–Sun containing today)
+    today = datetime.now()
+    today_str = today.strftime("%Y-%m-%d")
+    weekday_idx = today.weekday()  # 0=Mon
+    week_start = today - __import__("datetime").timedelta(days=weekday_idx)
+
+    # Pre-render the initial week server-side
+    day_names = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"]
+    initial_week_html = ""
+    week_start_str = week_start.strftime("%Y-%m-%d")
+
+    for i in range(7):
+        day = week_start + __import__("datetime").timedelta(days=i)
+        d_str = day.strftime("%Y-%m-%d")
+        day_num = day.day
+        is_today = (d_str == today_str)
+        day_data = all_dates.get(d_str, {})
+        has_courses = len(day_data) > 0
+
+        today_cls = " is-today" if is_today else ""
+        empty_cls = " empty-day" if not has_courses else ""
+
+        pills_html = ""
+        for track_name in TRACK_ORDER:
+            if track_name in day_data:
+                meta = TRACK_META[track_name]
+                entry = day_data[track_name]
+                title_esc = _html_escape(entry["title"])
+                pills_html += (
+                    f'<a href="{entry["url"]}" class="course-pill {meta["css_class"]}" title="{title_esc}">'
+                    f'<span class="pill-shape">{meta["shape"]}</span>'
+                    f'{title_esc}</a>'
+                )
+
+        initial_week_html += f"""
+      <div class="day-col{today_cls}{empty_cls}">
+        <div class="day-header">{day_names[i]}</div>
+        <div class="day-num">{day_num}</div>
+        <div class="day-courses">{pills_html}</div>
+      </div>"""
+
+    # Week label
+    week_end = week_start + __import__("datetime").timedelta(days=6)
+    if week_start.month == week_end.month:
+        week_label = f"{week_start.strftime('%b')} {week_start.day} – {week_end.day}, {week_end.year}"
+    else:
+        week_label = f"{week_start.strftime('%b')} {week_start.day} – {week_end.strftime('%b')} {week_end.day}, {week_end.year}"
+
+    # Legend
+    legend_html = ""
     for track_name in TRACK_ORDER:
-        track_cfg  = TRACKS.get(track_name, {})
-        meta       = TRACK_META.get(track_name, {})
-        label      = track_cfg.get("label", track_name)
-        schedule   = track_cfg.get("schedule", "")
-        tag_label, tag_class = SCHEDULE_TAG_MAP.get(schedule, (schedule, "tag-daily"))
-        entries    = courses[track_name]
-
-        icon_char   = meta.get("icon_char", "&#9671;")
-        card_class  = meta.get("card_class", "")
-        track_num   = meta.get("num", "00")
-        desc        = meta.get("desc", "")
-
-        if entries:
-            latest = entries[0]
-            latest_date_display = _format_date_display(latest['date'])
-            latest_html = f"""
-        <div class="latest-course">
-          <div class="latest-info">
-            <div class="latest-label">Latest Course</div>
-            <div class="latest-title">{_html_escape(latest['title'])}</div>
-            <div class="latest-date">{latest_date_display}</div>
-          </div>
-          <a href="{latest['rel_path']}" class="btn">Open <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8h10M9 4l4 4-4 4"/></svg></a>
-        </div>"""
-
-            archive_items = ""
-            for e in entries[1:]:
-                date_display = _format_date_display(e['date'])
-                archive_items += f"""
-            <li>
-              <span class="archive-date">{date_display}</span>
-              <span class="archive-title">{_html_escape(e['title'])}</span>
-              <a href="{e['rel_path']}" class="archive-link">View</a>
-            </li>"""
-
-            if archive_items:
-                archive_section = f"""
-        <details>
-          <summary class="archive-toggle"><span class="chevron">&#9654;</span> Previous courses ({len(entries)-1})</summary>
-          <ul class="archive-list">{archive_items}
-          </ul>
-        </details>"""
-            else:
-                archive_section = ""
-        else:
-            latest_html     = '<p class="empty-state">No courses yet &mdash; check back soon.</p>'
-            archive_section = ""
-
-        cards_html += f"""
-        <div class="track-card {card_class}">
-          <span class="track-num">{track_num}</span>
-          <div class="track-header">
-            <div class="track-icon">{icon_char}</div>
-            <div class="track-meta">
-              <div class="track-title">{_html_escape(label)}</div>
-              <div class="track-desc">{desc}</div>
-            </div>
-            <span class="schedule-tag {tag_class}">{tag_label}</span>
-          </div>
-          {latest_html}
-          {archive_section}
-        </div>"""
+        meta = TRACK_META[track_name]
+        label = TRACKS.get(track_name, {}).get("label", track_name)
+        schedule = TRACKS.get(track_name, {}).get("schedule", "")
+        sched_display = {"daily": "Daily", "mon,wed,fri": "M/W/F", "tue,thu": "T/Th"}.get(schedule, schedule)
+        legend_html += (
+            f'<div class="legend-item {meta["css_class"]}">'
+            f'<span class="legend-swatch"></span>'
+            f'<span class="legend-shape">{meta["shape"]}</span>'
+            f'{_html_escape(label)}'
+            f'<span style="color:var(--muted);font-size:0.6rem">({sched_display})</span>'
+            f'</div>'
+        )
 
     now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+
+    # Inline JS for week navigation
+    inline_js = r"""
+const COURSES = __COURSES_JSON__;
+const TRACK_ORDER = __TRACK_ORDER__;
+const TRACK_META = __TRACK_META_JS__;
+const DAY_NAMES = ["MON","TUE","WED","THU","FRI","SAT","SUN"];
+const TODAY = "__TODAY__";
+
+let refDate = new Date("__WEEK_START__" + "T00:00:00");
+
+function fmt(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,"0");
+  const day = String(d.getDate()).padStart(2,"0");
+  return y+"-"+m+"-"+day;
+}
+
+function getWeekDates(start) {
+  const dates = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(start);
+    d.setDate(d.getDate() + i);
+    dates.push(d);
+  }
+  return dates;
+}
+
+function renderWeek() {
+  const dates = getWeekDates(refDate);
+  const grid = document.getElementById("week-grid");
+  const end = dates[6];
+  const startM = dates[0].toLocaleDateString("en",{month:"short"});
+  const endM = end.toLocaleDateString("en",{month:"short"});
+  let label;
+  if (dates[0].getMonth() === end.getMonth()) {
+    label = startM+" "+dates[0].getDate()+" – "+end.getDate()+", "+end.getFullYear();
+  } else {
+    label = startM+" "+dates[0].getDate()+" – "+endM+" "+end.getDate()+", "+end.getFullYear();
+  }
+  document.getElementById("week-label").textContent = label;
+
+  let html = "";
+  dates.forEach((d, i) => {
+    const ds = fmt(d);
+    const isToday = ds === TODAY;
+    const dayData = COURSES[ds] || {};
+    const hasCourses = Object.keys(dayData).length > 0;
+    const todayCls = isToday ? " is-today" : "";
+    const emptyCls = !hasCourses ? " empty-day" : "";
+
+    let pills = "";
+    TRACK_ORDER.forEach(t => {
+      if (dayData[t]) {
+        const m = TRACK_META[t];
+        const title = dayData[t].title.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+        pills += '<a href="'+dayData[t].url+'" class="course-pill '+m.css+'" title="'+title+'">' +
+          '<span class="pill-shape">'+m.shape+'</span>'+title+'</a>';
+      }
+    });
+
+    html += '<div class="day-col'+todayCls+emptyCls+'">' +
+      '<div class="day-header">'+DAY_NAMES[i]+'</div>' +
+      '<div class="day-num">'+d.getDate()+'</div>' +
+      '<div class="day-courses">'+pills+'</div></div>';
+  });
+  grid.innerHTML = html;
+}
+
+function navigate(offset) {
+  refDate.setDate(refDate.getDate() + offset * 7);
+  renderWeek();
+}
+
+function goToday() {
+  const t = new Date(TODAY + "T00:00:00");
+  const wd = t.getDay() === 0 ? 6 : t.getDay() - 1;
+  refDate = new Date(t);
+  refDate.setDate(refDate.getDate() - wd);
+  renderWeek();
+}
+
+document.getElementById("prev-week").addEventListener("click", () => navigate(-1));
+document.getElementById("next-week").addEventListener("click", () => navigate(1));
+document.getElementById("today-btn").addEventListener("click", goToday);
+"""
+
+    # Build JS track meta for client-side
+    track_meta_js = "{"
+    for i, t in enumerate(TRACK_ORDER):
+        m = TRACK_META[t]
+        track_meta_js += f'"{t}":{{"shape":"{m["shape"]}","css":"{m["css_class"]}"}}'
+        if i < len(TRACK_ORDER) - 1:
+            track_meta_js += ","
+    track_meta_js += "}"
+
+    track_order_js = json.dumps(TRACK_ORDER)
+
+    final_js = (inline_js
+        .replace("__COURSES_JSON__", courses_json)
+        .replace("__TRACK_ORDER__", track_order_js)
+        .replace("__TRACK_META_JS__", track_meta_js)
+        .replace("__TODAY__", today_str)
+        .replace("__WEEK_START__", week_start_str))
+
     html = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -601,23 +668,49 @@ def generate_index_html(site_dir: Path) -> Path:
   <style>{INDEX_CSS}</style>
 </head>
 <body>
-  <div class="page-dots"></div>
   <div class="container">
-    <div class="hero">
-      <div class="hero-mono">AI</div>
-      <div class="hero-badge">Synthesized daily</div>
-      <h1>AI Daily<br><em>Courses</em></h1>
-      <p class="hero-sub">Hands-on Jupyter Notebook courses built from the latest AI research &amp; news. Deep dives into models, architectures, and code.</p>
-      <hr class="hero-rule">
+
+    <div class="header">
+      <div class="header-brand">
+        <div class="header-mark"><span>AI</span></div>
+        <div class="header-text">
+          <h1>Daily Courses</h1>
+          <div class="tagline">Synthesized from the latest AI research</div>
+        </div>
+      </div>
+      <div class="header-shapes">
+        <div class="geo-circle"></div>
+        <div class="geo-square"></div>
+        <div class="geo-triangle"></div>
+      </div>
     </div>
-    <div class="section-label">{total_courses} Course{"s" if total_courses != 1 else ""} &middot; {len(TRACK_ORDER)} Tracks</div>
-    <div class="tracks">
-    {cards_html}
+
+    <div class="week-nav">
+      <button id="prev-week" aria-label="Previous week">&#9664;</button>
+      <div id="week-label" class="week-label">{week_label}</div>
+      <button id="next-week" aria-label="Next week">&#9654;</button>
+      <button id="today-btn" class="today-btn">Today</button>
     </div>
+
+    <div class="week-grid" id="week-grid">{initial_week_html}
+    </div>
+
+    <div class="legend">{legend_html}</div>
+
+    <div class="stats-bar">
+      <div><strong>{total_courses}</strong> course{"s" if total_courses != 1 else ""}</div>
+      <div><strong>{len(TRACK_ORDER)}</strong> tracks</div>
+      <div>Updated <strong>{now_str}</strong></div>
+    </div>
+
     <footer>
-      <span class="footer-brand">AI Daily Courses</span> &middot; Auto-generated &middot; {now_str}
+      <span>AI Daily Courses</span> &middot; Auto-generated
     </footer>
+
   </div>
+  <script>
+{final_js}
+  </script>
 </body>
 </html>"""
 
