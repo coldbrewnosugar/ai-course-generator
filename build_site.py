@@ -1596,92 +1596,106 @@ body {
   border-color: var(--ink);
 }
 
-/* ── Calendar grid ── */
-.week-grid {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 1px;
-  background: var(--border);
+/* ── Day-card feed ── */
+.day-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.day-card {
+  background: #fff;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   overflow: hidden;
 }
-.day-col {
-  min-height: 155px;
-  display: flex;
-  flex-direction: column;
-  background: #fff;
+.day-card.is-today {
+  background: var(--accent-light);
+  border-color: var(--accent-subtle);
 }
-.day-header {
+.day-card-header {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.85rem 1rem 0.5rem;
+}
+.day-card-dow {
   font-family: var(--mono);
-  font-size: 0.55rem;
+  font-size: 0.65rem;
   font-weight: 600;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  text-align: center;
-  padding: 0.65rem 0.4rem 0.15rem;
+  color: var(--ink);
+}
+.day-card-date {
+  font-family: var(--sans);
+  font-size: 0.8rem;
+  font-weight: 500;
   color: var(--muted);
 }
-.day-num {
-  font-family: var(--mono);
-  font-size: 1.15rem;
-  font-weight: 600;
-  text-align: center;
-  padding: 0.25rem 0 0.4rem;
-  color: var(--ink);
+.day-card.is-today .day-card-dow {
+  color: var(--accent);
 }
-.day-col.is-today .day-num {
-  background: var(--ink);
-  color: #fff;
-  margin: 0 auto;
-  width: 32px; height: 32px;
-  display: flex; align-items: center; justify-content: center;
-  border-radius: var(--radius-sm);
-  padding: 0;
+.track-group {
+  border-top: 1px solid var(--border);
+  padding: 0.6rem 1rem;
 }
-.day-col.is-today {
-  background: var(--accent-light);
+.day-card.is-today .track-group {
+  border-top-color: var(--accent-subtle);
 }
-.day-col.empty-day {
-  background: var(--bg);
-}
-.day-courses {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  padding: 3px;
-}
-.course-pill {
+.track-group-label {
   display: flex;
   align-items: center;
-  gap: 5px;
-  padding: 5px 7px;
-  text-decoration: none;
-  font-size: 0.65rem;
-  font-weight: 500;
-  color: var(--ink);
-  background: var(--surface);
-  border: none;
-  transition: all 0.15s;
-  line-height: 1.25;
-  word-break: break-word;
-  border-radius: var(--radius-sm);
+  gap: 0.4rem;
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-bottom: 0.35rem;
 }
-.course-pill:hover {
-  background: var(--accent-light);
-}
-.course-pill .pill-shape {
-  flex-shrink: 0;
+.track-group-label.track-general  { color: #E5484D; }
+.track-group-label.track-image-gen { color: #8B5CF6; }
+.track-group-label.track-audio    { color: #F59E0B; }
+.track-group-label .tg-shape {
   font-size: 0.5rem;
   line-height: 1;
 }
-.course-pill.track-general  { border-left: 3px solid #E5484D; }
-.course-pill.track-image-gen { border-left: 3px solid #8B5CF6; }
-.course-pill.track-audio    { border-left: 3px solid #F59E0B; }
-.course-pill.track-general:hover  { background: rgba(229,72,77,0.06); }
-.course-pill.track-image-gen:hover { background: rgba(139,92,246,0.06); }
-.course-pill.track-audio:hover    { background: rgba(245,158,11,0.06); }
+.session-link {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.5rem;
+  margin-left: 0.25rem;
+  text-decoration: none;
+  font-size: 0.82rem;
+  font-weight: 450;
+  color: var(--ink);
+  border-radius: var(--radius-sm);
+  transition: background 0.15s, color 0.15s;
+  line-height: 1.35;
+}
+.session-link:hover {
+  background: var(--surface);
+  color: var(--accent);
+}
+.day-card.is-today .session-link:hover {
+  background: rgba(255,255,255,0.6);
+}
+.session-link .sl-arrow {
+  flex-shrink: 0;
+  font-size: 0.65rem;
+  color: var(--muted);
+  transition: color 0.15s;
+}
+.session-link:hover .sl-arrow {
+  color: var(--accent);
+}
+.empty-week-msg {
+  text-align: center;
+  padding: 2.5rem 1rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
 
 /* ── Legend ── */
 .legend {
@@ -1750,50 +1764,12 @@ footer span { color: var(--ink); font-weight: 600; }
 /* ── Responsive ── */
 @media (max-width: 700px) {
   .header { flex-direction: column; align-items: flex-start; gap: 0.5rem; }
-  .week-grid {
-    display: flex;
-    flex-direction: column;
-    gap: 0;
-    border-radius: var(--radius-md);
-  }
-  .day-col {
-    min-height: auto;
-    flex-direction: row;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 0.55rem 0.75rem;
-    border-bottom: 1px solid var(--border);
-  }
-  .day-col:last-child { border-bottom: none; }
-  .day-col.empty-day { display: none; }
-  .day-header {
-    flex-shrink: 0;
-    width: 2.5rem;
-    text-align: left;
-    padding: 0;
-  }
-  .day-num {
-    flex-shrink: 0;
-    width: 2rem;
-    text-align: center;
-    padding: 0;
-    font-size: 0.95rem;
-  }
-  .day-col.is-today .day-num {
-    width: 28px; height: 28px;
-    margin: 0;
-    font-size: 0.85rem;
-  }
-  .day-courses {
-    flex: 1;
-    flex-direction: row;
-    flex-wrap: wrap;
-    gap: 4px;
-    padding: 0;
-  }
   .legend { flex-wrap: wrap; gap: 0.75rem; }
   .week-nav .week-label { min-width: auto; font-size: 0.75rem; }
   .week-nav { gap: 0.5rem; }
+  .day-card-header { padding: 0.7rem 0.85rem 0.4rem; }
+  .track-group { padding: 0.5rem 0.85rem; }
+  .session-link { font-size: 0.78rem; }
 }
 @media (max-width: 480px) {
   .header-text h1 { font-size: 1.2rem; }
@@ -1889,41 +1865,59 @@ def generate_index_html(site_dir: Path) -> Path:
     weekday_idx = (today.weekday() + 1) % 7  # 0=Sun
     week_start = today - __import__("datetime").timedelta(days=weekday_idx)
 
-    # Pre-render the initial week server-side
+    # Pre-render the initial week server-side (reverse chronological day cards)
     day_names = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"]
     initial_week_html = ""
     week_start_str = week_start.strftime("%Y-%m-%d")
 
+    # Build days in reverse chronological order, skip empty days
+    week_days = []
     for i in range(7):
         day = week_start + __import__("datetime").timedelta(days=i)
         d_str = day.strftime("%Y-%m-%d")
-        day_num = day.day
-        is_today = (d_str == today_str)
         day_data = all_dates.get(d_str, {})
-        has_courses = len(day_data) > 0
+        if day_data:
+            week_days.append((day, d_str, day_data))
+    week_days.reverse()
 
-        today_cls = " is-today" if is_today else ""
-        empty_cls = " empty-day" if not has_courses else ""
+    if not week_days:
+        initial_week_html = '\n      <div class="empty-week-msg">No sessions this week</div>'
+    else:
+        for day, d_str, day_data in week_days:
+            is_today = (d_str == today_str)
+            today_cls = " is-today" if is_today else ""
+            dow = day_names[day.weekday() if day.weekday() != 6 else 6]
+            # weekday() is Mon=0..Sun=6, but day_names is Sun=0..Sat=6
+            dow = day_names[(day.weekday() + 1) % 7]
+            date_display = day.strftime("%b %-d")
 
-        pills_html = ""
-        for track_name in TRACK_ORDER:
-            if track_name in day_data:
-                meta = TRACK_META[track_name]
-                entries = day_data[track_name]  # list of sessions
+            tracks_html = ""
+            for tn in TRACK_ORDER:
+                if tn not in day_data:
+                    continue
+                meta = TRACK_META[tn]
+                track_label = TRACKS.get(tn, {}).get("label", tn)
+                entries = day_data[tn]
+                links_html = ""
                 for entry in entries:
                     title_esc = _html_escape(entry["title"])
-                    slot_label = f' #{entry["slot"]}' if entry.get("slot") else ""
-                    pills_html += (
-                        f'<a href="{entry["url"]}" class="course-pill {meta["css_class"]}" title="{title_esc}">'
-                        f'<span class="pill-shape">{meta["shape"]}</span>'
-                        f'{title_esc}</a>'
+                    links_html += (
+                        f'<a href="{entry["url"]}" class="session-link" title="{title_esc}">'
+                        f'{title_esc}<span class="sl-arrow">\u2192</span></a>'
                     )
+                tracks_html += (
+                    f'<div class="track-group">'
+                    f'<div class="track-group-label {meta["css_class"]}">'
+                    f'<span class="tg-shape">{meta["shape"]}</span>{_html_escape(track_label)}</div>'
+                    f'{links_html}</div>'
+                )
 
-        initial_week_html += f"""
-      <div class="day-col{today_cls}{empty_cls}">
-        <div class="day-header">{day_names[i]}</div>
-        <div class="day-num">{day_num}</div>
-        <div class="day-courses">{pills_html}</div>
+            initial_week_html += f"""
+      <div class="day-card{today_cls}">
+        <div class="day-card-header">
+          <span class="day-card-dow">{dow}</span>
+          <span class="day-card-date">{date_display}</span>
+        </div>{tracks_html}
       </div>"""
 
     # Week label
@@ -1956,7 +1950,9 @@ def generate_index_html(site_dir: Path) -> Path:
 const COURSES = __COURSES_JSON__;
 const TRACK_ORDER = __TRACK_ORDER__;
 const TRACK_META = __TRACK_META_JS__;
+const TRACK_LABELS = __TRACK_LABELS_JS__;
 const DAY_NAMES = ["SUN","MON","TUE","WED","THU","FRI","SAT"];
+const MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 const TODAY = "__TODAY__";
 
 let refDate = new Date("__WEEK_START__" + "T00:00:00");
@@ -1978,48 +1974,66 @@ function getWeekDates(start) {
   return dates;
 }
 
+function esc(s) {
+  return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
 function renderWeek() {
   const dates = getWeekDates(refDate);
-  const grid = document.getElementById("week-grid");
+  const feed = document.getElementById("day-feed");
   const end = dates[6];
   const startM = dates[0].toLocaleDateString("en",{month:"short"});
   const endM = end.toLocaleDateString("en",{month:"short"});
   let label;
   if (dates[0].getMonth() === end.getMonth()) {
-    label = startM+" "+dates[0].getDate()+" – "+end.getDate()+", "+end.getFullYear();
+    label = startM+" "+dates[0].getDate()+" \u2013 "+end.getDate()+", "+end.getFullYear();
   } else {
-    label = startM+" "+dates[0].getDate()+" – "+endM+" "+end.getDate()+", "+end.getFullYear();
+    label = startM+" "+dates[0].getDate()+" \u2013 "+endM+" "+end.getDate()+", "+end.getFullYear();
   }
   document.getElementById("week-label").textContent = label;
 
-  let html = "";
-  dates.forEach((d, i) => {
+  // Collect days with sessions, reverse chronological
+  const cards = [];
+  dates.forEach((d) => {
     const ds = fmt(d);
-    const isToday = ds === TODAY;
     const dayData = COURSES[ds] || {};
     const hasCourses = Object.values(dayData).some(v => Array.isArray(v) ? v.length > 0 : !!v);
-    const todayCls = isToday ? " is-today" : "";
-    const emptyCls = !hasCourses ? " empty-day" : "";
+    if (hasCourses) cards.push({d, ds, dayData});
+  });
+  cards.reverse();
 
-    let pills = "";
+  if (cards.length === 0) {
+    feed.innerHTML = '<div class="empty-week-msg">No sessions this week</div>';
+    return;
+  }
+
+  let html = "";
+  cards.forEach(({d, ds, dayData}) => {
+    const isToday = ds === TODAY;
+    const todayCls = isToday ? " is-today" : "";
+    const dow = DAY_NAMES[d.getDay()];
+    const dateDisp = MONTH_NAMES[d.getMonth()] + " " + d.getDate();
+
+    let tracksHtml = "";
     TRACK_ORDER.forEach(t => {
-      if (dayData[t]) {
-        const m = TRACK_META[t];
-        const entries = Array.isArray(dayData[t]) ? dayData[t] : [dayData[t]];
-        entries.forEach(entry => {
-          const title = entry.title.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
-          pills += '<a href="'+entry.url+'" class="course-pill '+m.css+'" title="'+title+'">' +
-            '<span class="pill-shape">'+m.shape+'</span>'+title+'</a>';
-        });
-      }
+      if (!dayData[t]) return;
+      const m = TRACK_META[t];
+      const entries = Array.isArray(dayData[t]) ? dayData[t] : [dayData[t]];
+      let links = "";
+      entries.forEach(entry => {
+        const title = esc(entry.title);
+        links += '<a href="'+entry.url+'" class="session-link" title="'+title+'">'+title+'<span class="sl-arrow">\u2192</span></a>';
+      });
+      tracksHtml += '<div class="track-group"><div class="track-group-label '+m.css+'">' +
+        '<span class="tg-shape">'+m.shape+'</span>'+esc(TRACK_LABELS[t])+'</div>'+links+'</div>';
     });
 
-    html += '<div class="day-col'+todayCls+emptyCls+'">' +
-      '<div class="day-header">'+DAY_NAMES[i]+'</div>' +
-      '<div class="day-num">'+d.getDate()+'</div>' +
-      '<div class="day-courses">'+pills+'</div></div>';
+    html += '<div class="day-card'+todayCls+'"><div class="day-card-header">' +
+      '<span class="day-card-dow">'+dow+'</span>' +
+      '<span class="day-card-date">'+dateDisp+'</span>' +
+      '</div>'+tracksHtml+'</div>';
   });
-  grid.innerHTML = html;
+  feed.innerHTML = html;
 }
 
 function navigate(offset) {
@@ -2049,12 +2063,18 @@ document.getElementById("today-btn").addEventListener("click", goToday);
             track_meta_js += ","
     track_meta_js += "}"
 
+    # Build JS track labels for client-side
+    track_labels_js = json.dumps({
+        t: TRACKS.get(t, {}).get("label", t) for t in TRACK_ORDER
+    }, separators=(",", ":"))
+
     track_order_js = json.dumps(TRACK_ORDER)
 
     final_js = (inline_js
         .replace("__COURSES_JSON__", courses_json)
         .replace("__TRACK_ORDER__", track_order_js)
         .replace("__TRACK_META_JS__", track_meta_js)
+        .replace("__TRACK_LABELS_JS__", track_labels_js)
         .replace("__TODAY__", today_str)
         .replace("__WEEK_START__", week_start_str))
 
@@ -2096,7 +2116,7 @@ document.getElementById("today-btn").addEventListener("click", goToday);
       <button id="today-btn" class="today-btn">Today</button>
     </div>
 
-    <div class="week-grid" id="week-grid">{initial_week_html}
+    <div class="day-feed" id="day-feed">{initial_week_html}
     </div>
 
     <div class="legend">{legend_html}</div>
