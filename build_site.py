@@ -1600,13 +1600,14 @@ body {
 .day-feed {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 1rem;
 }
 .day-card {
   background: #fff;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  overflow: hidden;
+  padding: 1rem;
+  box-shadow: var(--shadow-sm);
 }
 .day-card.is-today {
   background: var(--accent-light);
@@ -1616,79 +1617,64 @@ body {
   display: flex;
   align-items: baseline;
   gap: 0.5rem;
-  padding: 0.85rem 1rem 0.5rem;
+  margin-bottom: 0.65rem;
 }
 .day-card-dow {
   font-family: var(--mono);
-  font-size: 0.65rem;
+  font-size: 0.6rem;
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--ink);
+  color: var(--muted);
 }
 .day-card-date {
   font-family: var(--sans);
-  font-size: 0.8rem;
-  font-weight: 500;
-  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ink);
 }
 .day-card.is-today .day-card-dow {
   color: var(--accent);
 }
-.track-group {
-  border-top: 1px solid var(--border);
-  padding: 0.6rem 1rem;
+.day-card-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
 }
-.day-card.is-today .track-group {
-  border-top-color: var(--accent-subtle);
-}
-.track-group-label {
+.session-pill {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
-  font-family: var(--mono);
-  font-size: 0.6rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  margin-bottom: 0.35rem;
+  gap: 6px;
+  padding: 0.45rem 0.75rem;
+  text-decoration: none;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  transition: all 0.15s;
+  line-height: 1.3;
 }
-.track-group-label.track-general  { color: #E5484D; }
-.track-group-label.track-image-gen { color: #8B5CF6; }
-.track-group-label.track-audio    { color: #F59E0B; }
-.track-group-label .tg-shape {
-  font-size: 0.5rem;
+.session-pill:hover {
+  box-shadow: var(--shadow-md);
+  border-color: transparent;
+  transform: translateY(-1px);
+}
+.session-pill .pill-shape {
+  flex-shrink: 0;
+  font-size: 0.45rem;
   line-height: 1;
 }
-.session-link {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.3rem 0.5rem;
-  margin-left: 0.25rem;
-  text-decoration: none;
-  font-size: 0.82rem;
-  font-weight: 450;
-  color: var(--ink);
-  border-radius: var(--radius-sm);
-  transition: background 0.15s, color 0.15s;
-  line-height: 1.35;
-}
-.session-link:hover {
-  background: var(--surface);
-  color: var(--accent);
-}
-.day-card.is-today .session-link:hover {
-  background: rgba(255,255,255,0.6);
-}
-.session-link .sl-arrow {
-  flex-shrink: 0;
-  font-size: 0.65rem;
-  color: var(--muted);
-  transition: color 0.15s;
-}
-.session-link:hover .sl-arrow {
-  color: var(--accent);
+.session-pill.track-general  { border-left: 3px solid #E5484D; }
+.session-pill.track-image-gen { border-left: 3px solid #8B5CF6; }
+.session-pill.track-audio    { border-left: 3px solid #F59E0B; }
+.session-pill.track-general:hover  { background: rgba(229,72,77,0.06); }
+.session-pill.track-image-gen:hover { background: rgba(139,92,246,0.06); }
+.session-pill.track-audio:hover    { background: rgba(245,158,11,0.06); }
+.day-card.is-today .session-pill {
+  background: #fff;
+  border-color: rgba(255,255,255,0.8);
 }
 .empty-week-msg {
   text-align: center;
@@ -1767,9 +1753,8 @@ footer span { color: var(--ink); font-weight: 600; }
   .legend { flex-wrap: wrap; gap: 0.75rem; }
   .week-nav .week-label { min-width: auto; font-size: 0.75rem; }
   .week-nav { gap: 0.5rem; }
-  .day-card-header { padding: 0.7rem 0.85rem 0.4rem; }
-  .track-group { padding: 0.5rem 0.85rem; }
-  .session-link { font-size: 0.78rem; }
+  .day-card { padding: 0.85rem; }
+  .session-pill { font-size: 0.72rem; }
 }
 @media (max-width: 480px) {
   .header-text h1 { font-size: 1.2rem; }
@@ -1891,33 +1876,27 @@ def generate_index_html(site_dir: Path) -> Path:
             dow = day_names[(day.weekday() + 1) % 7]
             date_display = day.strftime("%b %-d")
 
-            tracks_html = ""
+            pills_html = ""
             for tn in TRACK_ORDER:
                 if tn not in day_data:
                     continue
                 meta = TRACK_META[tn]
-                track_label = TRACKS.get(tn, {}).get("label", tn)
                 entries = day_data[tn]
-                links_html = ""
                 for entry in entries:
                     title_esc = _html_escape(entry["title"])
-                    links_html += (
-                        f'<a href="{entry["url"]}" class="session-link" title="{title_esc}">'
-                        f'{title_esc}<span class="sl-arrow">\u2192</span></a>'
+                    pills_html += (
+                        f'<a href="{entry["url"]}" class="session-pill {meta["css_class"]}" title="{title_esc}">'
+                        f'<span class="pill-shape">{meta["shape"]}</span>'
+                        f'{title_esc}</a>'
                     )
-                tracks_html += (
-                    f'<div class="track-group">'
-                    f'<div class="track-group-label {meta["css_class"]}">'
-                    f'<span class="tg-shape">{meta["shape"]}</span>{_html_escape(track_label)}</div>'
-                    f'{links_html}</div>'
-                )
 
             initial_week_html += f"""
       <div class="day-card{today_cls}">
         <div class="day-card-header">
           <span class="day-card-dow">{dow}</span>
           <span class="day-card-date">{date_display}</span>
-        </div>{tracks_html}
+        </div>
+        <div class="day-card-pills">{pills_html}</div>
       </div>"""
 
     # Week label
@@ -2014,24 +1993,22 @@ function renderWeek() {
     const dow = DAY_NAMES[d.getDay()];
     const dateDisp = MONTH_NAMES[d.getMonth()] + " " + d.getDate();
 
-    let tracksHtml = "";
+    let pillsHtml = "";
     TRACK_ORDER.forEach(t => {
       if (!dayData[t]) return;
       const m = TRACK_META[t];
       const entries = Array.isArray(dayData[t]) ? dayData[t] : [dayData[t]];
-      let links = "";
       entries.forEach(entry => {
         const title = esc(entry.title);
-        links += '<a href="'+entry.url+'" class="session-link" title="'+title+'">'+title+'<span class="sl-arrow">\u2192</span></a>';
+        pillsHtml += '<a href="'+entry.url+'" class="session-pill '+m.css+'" title="'+title+'">' +
+          '<span class="pill-shape">'+m.shape+'</span>'+title+'</a>';
       });
-      tracksHtml += '<div class="track-group"><div class="track-group-label '+m.css+'">' +
-        '<span class="tg-shape">'+m.shape+'</span>'+esc(TRACK_LABELS[t])+'</div>'+links+'</div>';
     });
 
     html += '<div class="day-card'+todayCls+'"><div class="day-card-header">' +
       '<span class="day-card-dow">'+dow+'</span>' +
       '<span class="day-card-date">'+dateDisp+'</span>' +
-      '</div>'+tracksHtml+'</div>';
+      '</div><div class="day-card-pills">'+pillsHtml+'</div></div>';
   });
   feed.innerHTML = html;
 }
