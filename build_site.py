@@ -1596,45 +1596,18 @@ body {
   border-color: var(--ink);
 }
 
-/* ── Day-card feed ── */
-.day-feed {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
+/* ── Day card ── */
 .day-card {
   background: #fff;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   padding: 1rem;
   box-shadow: var(--shadow-sm);
+  min-height: 80px;
 }
 .day-card.is-today {
   background: var(--accent-light);
   border-color: var(--accent-subtle);
-}
-.day-card-header {
-  display: flex;
-  align-items: baseline;
-  gap: 0.5rem;
-  margin-bottom: 0.65rem;
-}
-.day-card-dow {
-  font-family: var(--mono);
-  font-size: 0.6rem;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-.day-card-date {
-  font-family: var(--sans);
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--ink);
-}
-.day-card.is-today .day-card-dow {
-  color: var(--accent);
 }
 .day-card-pills {
   display: flex;
@@ -1753,8 +1726,9 @@ footer span { color: var(--ink); font-weight: 600; }
   .legend { flex-wrap: wrap; gap: 0.75rem; }
   .week-nav .week-label { min-width: auto; font-size: 0.75rem; }
   .week-nav { gap: 0.5rem; }
-  .day-card { padding: 0.85rem; }
+  .day-card { padding: 0.75rem; }
   .session-pill { font-size: 0.72rem; }
+  .week-nav .week-label { min-width: auto; }
 }
 @media (max-width: 480px) {
   .header-text h1 { font-size: 1.2rem; }
@@ -1850,61 +1824,32 @@ def generate_index_html(site_dir: Path) -> Path:
     weekday_idx = (today.weekday() + 1) % 7  # 0=Sun
     week_start = today - __import__("datetime").timedelta(days=weekday_idx)
 
-    # Pre-render the initial week server-side (reverse chronological day cards)
-    day_names = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"]
-    initial_week_html = ""
-    week_start_str = week_start.strftime("%Y-%m-%d")
+    # Pre-render the initial day (today) server-side
+    day_names = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+    initial_day_html = ""
 
-    # Build days in reverse chronological order, skip empty days
-    week_days = []
-    for i in range(7):
-        day = week_start + __import__("datetime").timedelta(days=i)
-        d_str = day.strftime("%Y-%m-%d")
-        day_data = all_dates.get(d_str, {})
-        if day_data:
-            week_days.append((day, d_str, day_data))
-    week_days.reverse()
-
-    if not week_days:
-        initial_week_html = '\n      <div class="empty-week-msg">No sessions this week</div>'
+    day_data = all_dates.get(today_str, {})
+    if not day_data:
+        initial_day_html = '\n      <div class="empty-week-msg">No sessions on this day</div>'
     else:
-        for day, d_str, day_data in week_days:
-            is_today = (d_str == today_str)
-            today_cls = " is-today" if is_today else ""
-            dow = day_names[day.weekday() if day.weekday() != 6 else 6]
-            # weekday() is Mon=0..Sun=6, but day_names is Sun=0..Sat=6
-            dow = day_names[(day.weekday() + 1) % 7]
-            date_display = day.strftime("%b %-d")
+        pills_html = ""
+        for tn in TRACK_ORDER:
+            if tn not in day_data:
+                continue
+            meta = TRACK_META[tn]
+            entries = day_data[tn]
+            for entry in entries:
+                title_esc = _html_escape(entry["title"])
+                pills_html += (
+                    f'<a href="{entry["url"]}" class="session-pill {meta["css_class"]}" title="{title_esc}">'
+                    f'<span class="pill-shape">{meta["shape"]}</span>'
+                    f'{title_esc}</a>'
+                )
+        initial_day_html = f'\n      <div class="day-card-pills">{pills_html}</div>'
 
-            pills_html = ""
-            for tn in TRACK_ORDER:
-                if tn not in day_data:
-                    continue
-                meta = TRACK_META[tn]
-                entries = day_data[tn]
-                for entry in entries:
-                    title_esc = _html_escape(entry["title"])
-                    pills_html += (
-                        f'<a href="{entry["url"]}" class="session-pill {meta["css_class"]}" title="{title_esc}">'
-                        f'<span class="pill-shape">{meta["shape"]}</span>'
-                        f'{title_esc}</a>'
-                    )
-
-            initial_week_html += f"""
-      <div class="day-card{today_cls}">
-        <div class="day-card-header">
-          <span class="day-card-dow">{dow}</span>
-          <span class="day-card-date">{date_display}</span>
-        </div>
-        <div class="day-card-pills">{pills_html}</div>
-      </div>"""
-
-    # Week label
-    week_end = week_start + __import__("datetime").timedelta(days=6)
-    if week_start.month == week_end.month:
-        week_label = f"{week_start.strftime('%b')} {week_start.day} – {week_end.day}, {week_end.year}"
-    else:
-        week_label = f"{week_start.strftime('%b')} {week_start.day} – {week_end.strftime('%b')} {week_end.day}, {week_end.year}"
+    # Day label: "Sun, Mar 1, 2026"
+    dow = day_names[(today.weekday() + 1) % 7]
+    day_label = f"{dow}, {today.strftime('%b')} {today.day}, {today.year}"
 
     # Legend
     legend_html = ""
@@ -1924,17 +1869,16 @@ def generate_index_html(site_dir: Path) -> Path:
 
     now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
 
-    # Inline JS for week navigation
+    # Inline JS for day navigation
     inline_js = r"""
 const COURSES = __COURSES_JSON__;
 const TRACK_ORDER = __TRACK_ORDER__;
 const TRACK_META = __TRACK_META_JS__;
-const TRACK_LABELS = __TRACK_LABELS_JS__;
-const DAY_NAMES = ["SUN","MON","TUE","WED","THU","FRI","SAT"];
+const DAY_NAMES = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 const MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 const TODAY = "__TODAY__";
 
-let refDate = new Date("__WEEK_START__" + "T00:00:00");
+let refDate = new Date(TODAY + "T00:00:00");
 
 function fmt(d) {
   const y = d.getFullYear();
@@ -1943,91 +1887,58 @@ function fmt(d) {
   return y+"-"+m+"-"+day;
 }
 
-function getWeekDates(start) {
-  const dates = [];
-  for (let i = 0; i < 7; i++) {
-    const d = new Date(start);
-    d.setDate(d.getDate() + i);
-    dates.push(d);
-  }
-  return dates;
-}
-
 function esc(s) {
   return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 }
 
-function renderWeek() {
-  const dates = getWeekDates(refDate);
-  const feed = document.getElementById("day-feed");
-  const end = dates[6];
-  const startM = dates[0].toLocaleDateString("en",{month:"short"});
-  const endM = end.toLocaleDateString("en",{month:"short"});
-  let label;
-  if (dates[0].getMonth() === end.getMonth()) {
-    label = startM+" "+dates[0].getDate()+" \u2013 "+end.getDate()+", "+end.getFullYear();
-  } else {
-    label = startM+" "+dates[0].getDate()+" \u2013 "+endM+" "+end.getDate()+", "+end.getFullYear();
-  }
-  document.getElementById("week-label").textContent = label;
+function renderDay() {
+  const ds = fmt(refDate);
+  const card = document.getElementById("day-card");
+  const isToday = ds === TODAY;
 
-  // Collect days with sessions, reverse chronological
-  const cards = [];
-  dates.forEach((d) => {
-    const ds = fmt(d);
-    const dayData = COURSES[ds] || {};
-    const hasCourses = Object.values(dayData).some(v => Array.isArray(v) ? v.length > 0 : !!v);
-    if (hasCourses) cards.push({d, ds, dayData});
-  });
-  cards.reverse();
+  // Update label
+  const dow = DAY_NAMES[refDate.getDay()];
+  const label = dow + ", " + MONTH_NAMES[refDate.getMonth()] + " " + refDate.getDate() + ", " + refDate.getFullYear();
+  document.getElementById("day-label").textContent = label;
 
-  if (cards.length === 0) {
-    feed.innerHTML = '<div class="empty-week-msg">No sessions this week</div>';
+  // Toggle today highlight on card
+  card.classList.toggle("is-today", isToday);
+
+  const dayData = COURSES[ds] || {};
+  const hasCourses = Object.values(dayData).some(v => Array.isArray(v) ? v.length > 0 : !!v);
+
+  if (!hasCourses) {
+    card.innerHTML = '<div class="empty-week-msg">No sessions on this day</div>';
     return;
   }
 
-  let html = "";
-  cards.forEach(({d, ds, dayData}) => {
-    const isToday = ds === TODAY;
-    const todayCls = isToday ? " is-today" : "";
-    const dow = DAY_NAMES[d.getDay()];
-    const dateDisp = MONTH_NAMES[d.getMonth()] + " " + d.getDate();
-
-    let pillsHtml = "";
-    TRACK_ORDER.forEach(t => {
-      if (!dayData[t]) return;
-      const m = TRACK_META[t];
-      const entries = Array.isArray(dayData[t]) ? dayData[t] : [dayData[t]];
-      entries.forEach(entry => {
-        const title = esc(entry.title);
-        pillsHtml += '<a href="'+entry.url+'" class="session-pill '+m.css+'" title="'+title+'">' +
-          '<span class="pill-shape">'+m.shape+'</span>'+title+'</a>';
-      });
+  let pillsHtml = "";
+  TRACK_ORDER.forEach(t => {
+    if (!dayData[t]) return;
+    const m = TRACK_META[t];
+    const entries = Array.isArray(dayData[t]) ? dayData[t] : [dayData[t]];
+    entries.forEach(entry => {
+      const title = esc(entry.title);
+      pillsHtml += '<a href="'+entry.url+'" class="session-pill '+m.css+'" title="'+title+'">' +
+        '<span class="pill-shape">'+m.shape+'</span>'+title+'</a>';
     });
-
-    html += '<div class="day-card'+todayCls+'"><div class="day-card-header">' +
-      '<span class="day-card-dow">'+dow+'</span>' +
-      '<span class="day-card-date">'+dateDisp+'</span>' +
-      '</div><div class="day-card-pills">'+pillsHtml+'</div></div>';
   });
-  feed.innerHTML = html;
+
+  card.innerHTML = '<div class="day-card-pills">'+pillsHtml+'</div>';
 }
 
 function navigate(offset) {
-  refDate.setDate(refDate.getDate() + offset * 7);
-  renderWeek();
+  refDate.setDate(refDate.getDate() + offset);
+  renderDay();
 }
 
 function goToday() {
-  const t = new Date(TODAY + "T00:00:00");
-  const wd = t.getDay();
-  refDate = new Date(t);
-  refDate.setDate(refDate.getDate() - wd);
-  renderWeek();
+  refDate = new Date(TODAY + "T00:00:00");
+  renderDay();
 }
 
-document.getElementById("prev-week").addEventListener("click", () => navigate(-1));
-document.getElementById("next-week").addEventListener("click", () => navigate(1));
+document.getElementById("prev-day").addEventListener("click", () => navigate(-1));
+document.getElementById("next-day").addEventListener("click", () => navigate(1));
 document.getElementById("today-btn").addEventListener("click", goToday);
 """
 
@@ -2040,20 +1951,13 @@ document.getElementById("today-btn").addEventListener("click", goToday);
             track_meta_js += ","
     track_meta_js += "}"
 
-    # Build JS track labels for client-side
-    track_labels_js = json.dumps({
-        t: TRACKS.get(t, {}).get("label", t) for t in TRACK_ORDER
-    }, separators=(",", ":"))
-
     track_order_js = json.dumps(TRACK_ORDER)
 
     final_js = (inline_js
         .replace("__COURSES_JSON__", courses_json)
         .replace("__TRACK_ORDER__", track_order_js)
         .replace("__TRACK_META_JS__", track_meta_js)
-        .replace("__TRACK_LABELS_JS__", track_labels_js)
-        .replace("__TODAY__", today_str)
-        .replace("__WEEK_START__", week_start_str))
+        .replace("__TODAY__", today_str))
 
     html = f"""<!DOCTYPE html>
 <html lang="en">
@@ -2087,13 +1991,13 @@ document.getElementById("today-btn").addEventListener("click", goToday);
     </div>
 
     <div class="week-nav">
-      <button id="prev-week" aria-label="Previous week">&#9664;</button>
-      <div id="week-label" class="week-label">{week_label}</div>
-      <button id="next-week" aria-label="Next week">&#9654;</button>
+      <button id="prev-day" aria-label="Previous day">&#9664;</button>
+      <div id="day-label" class="week-label">{day_label}</div>
+      <button id="next-day" aria-label="Next day">&#9654;</button>
       <button id="today-btn" class="today-btn">Today</button>
     </div>
 
-    <div class="day-feed" id="day-feed">{initial_week_html}
+    <div class="day-card" id="day-card">{initial_day_html}
     </div>
 
     <div class="legend">{legend_html}</div>
