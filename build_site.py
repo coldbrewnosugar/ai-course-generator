@@ -50,10 +50,10 @@ SESSION_CSS = r"""
   --ink: #18181B;
   --ink-secondary: #52525B;
   --muted: #A1A1AA;
-  --accent: #E5484D;
-  --accent-hover: #CD2B31;
-  --accent-light: rgba(229,72,77,0.06);
-  --accent-subtle: rgba(229,72,77,0.12);
+  --accent: #64748B;
+  --accent-hover: #475569;
+  --accent-light: rgba(100,116,139,0.06);
+  --accent-subtle: rgba(100,116,139,0.14);
   --blue: #3B82F6;
   --red: #EF4444;
   --yellow: #EAB308;
@@ -86,9 +86,9 @@ body {
 }
 
 /* ── Track color worlds ── */
-body.track-general { /* default coral — uses :root values */ }
-body.track-image-gen { --accent: #8B5CF6; --accent-hover: #7C3AED; --accent-light: rgba(139,92,246,0.06); --accent-subtle: rgba(139,92,246,0.12); }
-body.track-audio { --accent: #F59E0B; --accent-hover: #D97706; --accent-light: rgba(245,158,11,0.06); --accent-subtle: rgba(245,158,11,0.12); }
+body.track-general { /* default slate — uses :root values */ }
+body.track-image-gen { --accent: #6B8F71; --accent-hover: #567A5C; --accent-light: rgba(107,143,113,0.06); --accent-subtle: rgba(107,143,113,0.14); }
+body.track-audio { --accent: #B07856; --accent-hover: #9A6848; --accent-light: rgba(176,120,86,0.06); --accent-subtle: rgba(176,120,86,0.14); }
 
 /* ── Layout ── */
 .session-container {
@@ -1448,10 +1448,10 @@ INDEX_CSS = r"""
   --ink: #18181B;
   --ink-secondary: #52525B;
   --muted: #A1A1AA;
-  --accent: #E5484D;
-  --accent-hover: #CD2B31;
-  --accent-light: rgba(229,72,77,0.06);
-  --accent-subtle: rgba(229,72,77,0.12);
+  --accent: #64748B;
+  --accent-hover: #475569;
+  --accent-light: rgba(100,116,139,0.06);
+  --accent-subtle: rgba(100,116,139,0.14);
   --red: #EF4444;
   --blue: #3B82F6;
   --yellow: #EAB308;
@@ -1475,7 +1475,7 @@ body {
   color: var(--ink);
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
-  border-top: 3px solid #E5484D;
+  border-top: 3px solid var(--accent);
 }
 
 .container {
@@ -1598,56 +1598,52 @@ body {
 
 /* ── Day card ── */
 .day-card {
-  background: #fff;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 1rem;
-  box-shadow: var(--shadow-sm);
+  background: transparent;
+  border: none;
+  border-left: 2px solid var(--ink);
+  border-radius: var(--radius-sm);
+  padding: 1.125rem 1.25rem;
   min-height: 80px;
 }
 .day-card.is-today {
   background: var(--accent-light);
-  border-color: var(--accent-subtle);
+  border-left-color: var(--accent);
 }
 .day-card-pills {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
+  flex-direction: column;
+  gap: 0.35rem;
 }
 .session-pill {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 0.45rem 0.75rem;
+  padding: 0.25rem 0;
   text-decoration: none;
   font-size: 0.75rem;
   font-weight: 500;
   color: var(--ink);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  transition: all 0.15s;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid transparent;
+  border-radius: 0;
+  transition: border-color 0.15s;
   line-height: 1.3;
 }
 .session-pill:hover {
-  box-shadow: var(--shadow-md);
-  border-color: transparent;
-  transform: translateY(-1px);
+  border-bottom-color: var(--ink);
 }
 .session-pill .pill-shape {
   flex-shrink: 0;
   font-size: 0.45rem;
   line-height: 1;
+  opacity: 0.55;
 }
-.session-pill.track-general  { border-left: 3px solid #E5484D; }
-.session-pill.track-image-gen { border-left: 3px solid #8B5CF6; }
-.session-pill.track-audio    { border-left: 3px solid #F59E0B; }
-.session-pill.track-general:hover  { background: rgba(229,72,77,0.06); }
-.session-pill.track-image-gen:hover { background: rgba(139,92,246,0.06); }
-.session-pill.track-audio:hover    { background: rgba(245,158,11,0.06); }
+.session-pill.track-general  .pill-shape { color: #64748B; }
+.session-pill.track-image-gen .pill-shape { color: #6B8F71; }
+.session-pill.track-audio    .pill-shape { color: #B07856; }
 .day-card.is-today .session-pill {
-  background: #fff;
-  border-color: rgba(255,255,255,0.8);
+  color: var(--ink);
 }
 .empty-week-msg {
   text-align: center;
@@ -1663,31 +1659,34 @@ body {
   justify-content: center;
   gap: 1.5rem;
   padding: 1.25rem 0;
+  border-top: 1px solid var(--border);
 }
 .legend-item {
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  font-family: var(--sans);
-  font-size: 0.72rem;
+  font-family: var(--mono);
+  font-size: 0.65rem;
   font-weight: 500;
   color: var(--ink-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 .legend-shape {
   font-size: 0.5rem;
   line-height: 1;
 }
-.legend-item.track-general  .legend-shape { color: #E5484D; }
-.legend-item.track-image-gen .legend-shape { color: #8B5CF6; }
-.legend-item.track-audio    .legend-shape { color: #F59E0B; }
+.legend-item.track-general  .legend-shape { color: #64748B; }
+.legend-item.track-image-gen .legend-shape { color: #6B8F71; }
+.legend-item.track-audio    .legend-shape { color: #B07856; }
 .legend-swatch {
   display: inline-block;
   width: 10px; height: 10px;
   border-radius: 2px;
 }
-.legend-item.track-general  .legend-swatch { background: #E5484D; }
-.legend-item.track-image-gen .legend-swatch { background: #8B5CF6; }
-.legend-item.track-audio    .legend-swatch { background: #F59E0B; }
+.legend-item.track-general  .legend-swatch { background: #64748B; }
+.legend-item.track-image-gen .legend-swatch { background: #6B8F71; }
+.legend-item.track-audio    .legend-swatch { background: #B07856; }
 
 /* ── Stats bar ── */
 .stats-bar {
@@ -1726,7 +1725,7 @@ footer span { color: var(--ink); font-weight: 600; }
   .legend { flex-wrap: wrap; gap: 0.75rem; }
   .week-nav .week-label { min-width: auto; font-size: 0.75rem; }
   .week-nav { gap: 0.5rem; }
-  .day-card { padding: 0.75rem; }
+  .day-card { padding: 0.875rem 1rem; }
   .session-pill { font-size: 0.72rem; }
   .week-nav .week-label { min-width: auto; }
 }
@@ -1740,21 +1739,21 @@ footer span { color: var(--ink); font-weight: 600; }
 
 TRACK_META = {
     "general": {
-        "color": "#E5484D",
+        "color": "#64748B",
         "shape": "\u25cf",
         "label_short": "GEN",
         "css_class": "track-general",
         "desc": "LLMs, research papers &amp; coding advances",
     },
     "image-gen": {
-        "color": "#8B5CF6",
+        "color": "#6B8F71",
         "shape": "\u25a0",
         "label_short": "IMG",
         "css_class": "track-image-gen",
         "desc": "Diffusion models, video AI &amp; vision",
     },
     "audio": {
-        "color": "#F59E0B",
+        "color": "#B07856",
         "shape": "\u25b2",
         "label_short": "AUD",
         "css_class": "track-audio",
