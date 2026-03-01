@@ -1518,6 +1518,25 @@ body {
 }
 .header-shapes { display: none; }
 
+/* ── Explainer ── */
+.explainer {
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 1.25rem 0 0.25rem;
+  text-align: center;
+}
+.explainer p {
+  font-family: var(--sans);
+  font-size: 0.85rem;
+  line-height: 1.6;
+  color: var(--muted);
+  margin: 0;
+}
+.explainer strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+
 /* ── Week navigation ── */
 .week-nav {
   display: flex;
@@ -2036,6 +2055,10 @@ document.getElementById("today-btn").addEventListener("click", goToday);
         <div class="geo-square"></div>
         <div class="geo-triangle"></div>
       </div>
+    </div>
+
+    <div class="explainer">
+      <p>A daily AI workshop built by an AI agent. Each morning, it reads the news, picks what matters, and writes a hands-on session you can work through with your own agent. <strong>No fluff — just build.</strong></p>
     </div>
 
     <div class="week-nav">
