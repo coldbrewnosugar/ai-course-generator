@@ -25,7 +25,7 @@ from pathlib import Path
 from collections import defaultdict
 
 sys.path.insert(0, str(Path(__file__).parent))
-from config import TRACKS, OUTPUT_DIR, SITE_DIR, LOG_DIR, SCHEDULE_DAYS
+from config import TRACKS, OUTPUT_DIR, SITE_DIR, LOG_DIR, SCHEDULE_DAYS, SESSIONS_PER_DAY
 from fetch_feeds import fetch_track_articles, _parse_date, HEADERS, FETCH_TIMEOUT, extract_tags
 
 import feedparser
@@ -169,18 +169,25 @@ def should_run_track_on_date(track_name: str, date_str: str) -> bool:
 
 def run_generation(track_name: str, date_str: str, articles: list[dict],
                    dry_run: bool = False) -> bool:
-    """Run generate_course.py + build_site.py for a single day."""
+    """Run generate_course.py + build_site.py for a single day (all slots)."""
     out_dir = Path(OUTPUT_DIR) / track_name
-    out_path = out_dir / f"{date_str}.json"
 
-    # Skip if session already exists
-    if out_path.exists():
-        log.info("  Session already exists: %s — skipping", out_path)
+    # Skip if all slots already exist
+    all_exist = True
+    for slot in range(1, SESSIONS_PER_DAY + 1):
+        slot_path = out_dir / f"{date_str}-{slot}.json"
+        if not slot_path.exists():
+            all_exist = False
+            break
+    # Also check legacy single file
+    legacy_path = out_dir / f"{date_str}.json"
+    if all_exist or legacy_path.exists():
+        log.info("  Sessions already exist for %s/%s — skipping", track_name, date_str)
         return True
 
     if dry_run:
-        log.info("  [DRY RUN] Would generate session for %s/%s (%d articles)",
-                 track_name, date_str, len(articles))
+        log.info("  [DRY RUN] Would generate %d sessions for %s/%s (%d articles)",
+                 SESSIONS_PER_DAY, track_name, date_str, len(articles))
         return True
 
     # Cap at 12 articles, fetch bodies for the selected ones
@@ -227,52 +234,80 @@ def run_generation(track_name: str, date_str: str, articles: list[dict],
     with open(articles_path, "w", encoding="utf-8") as fh:
         json.dump(payload, fh, indent=2, ensure_ascii=False)
 
-    # Run generate_course.py
     python = str(SCRIPT_DIR / ".venv" / "bin" / "python3")
     if not Path(python).exists():
         python = shutil.which("python3") or "python3"
 
-    log.info("  Running generate_course.py for %s/%s...", track_name, date_str)
-    gen_start = time.time()
-    try:
-        result = subprocess.run(
-            [python, str(SCRIPT_DIR / "generate_course.py"), track_name, articles_path],
-            capture_output=True, text=True, timeout=1800,
-        )
-        gen_elapsed = time.time() - gen_start
-        log.info("  Generation took %.0fs (exit code %d)", gen_elapsed, result.returncode)
+    # Generate all slots
+    exclude_topics = []
+    slot_failures = 0
 
-        if result.returncode != 0:
-            log.error("  generate_course.py failed: %s", result.stderr[:500])
-            return False
+    for slot in range(1, SESSIONS_PER_DAY + 1):
+        log.info("  Running generate_course.py for %s/%s slot %d...", track_name, date_str, slot)
+        gen_start = time.time()
 
-        session_path = result.stdout.strip().split("\n")[-1]
-        if not Path(session_path).exists():
-            log.error("  Session file not created: %s", session_path)
-            return False
+        cmd = [python, str(SCRIPT_DIR / "generate_course.py"), track_name, articles_path,
+               "--slot", str(slot)]
+        if exclude_topics:
+            cmd += ["--exclude-topics", "||".join(exclude_topics)]
 
-    except subprocess.TimeoutExpired:
-        log.error("  Generation timed out for %s/%s", track_name, date_str)
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=1800)
+            gen_elapsed = time.time() - gen_start
+            log.info("  Slot %d took %.0fs (exit code %d)", slot, gen_elapsed, result.returncode)
+
+            if result.returncode != 0:
+                log.error("  Slot %d failed: %s", slot, result.stderr[:500])
+                slot_failures += 1
+                continue
+
+            session_path = result.stdout.strip().split("\n")[-1]
+            if not Path(session_path).exists():
+                log.error("  Slot %d session file not created: %s", slot, session_path)
+                slot_failures += 1
+                continue
+
+            # Extract topic title for exclusion in next slots
+            try:
+                with open(session_path, encoding="utf-8") as fh:
+                    session_data = json.load(fh)
+                topic_title = session_data.get("session_title", "")
+                if topic_title:
+                    exclude_topics.append(topic_title)
+            except Exception:
+                pass
+
+        except subprocess.TimeoutExpired:
+            log.error("  Slot %d timed out for %s/%s", slot, track_name, date_str)
+            slot_failures += 1
+
+    if slot_failures == SESSIONS_PER_DAY:
+        log.error("  All %d slots failed for %s/%s", SESSIONS_PER_DAY, track_name, date_str)
+        Path(articles_path).unlink(missing_ok=True)
         return False
 
-    # Run build_site.py
-    log.info("  Running build_site.py for %s/%s...", track_name, date_str)
-    try:
-        result = subprocess.run(
-            [python, str(SCRIPT_DIR / "build_site.py"), track_name, date_str],
-            capture_output=True, text=True, timeout=60,
-        )
-        if result.returncode != 0:
-            log.error("  build_site.py failed: %s", result.stderr[:500])
-            return False
-    except subprocess.TimeoutExpired:
-        log.error("  build_site.py timed out")
-        return False
+    # Run build_site.py for each successful slot
+    for slot in range(1, SESSIONS_PER_DAY + 1):
+        slot_date = f"{date_str}-{slot}"
+        slot_json = out_dir / f"{slot_date}.json"
+        if not slot_json.exists():
+            continue
+        log.info("  Running build_site.py for %s/%s...", track_name, slot_date)
+        try:
+            result = subprocess.run(
+                [python, str(SCRIPT_DIR / "build_site.py"), track_name, slot_date],
+                capture_output=True, text=True, timeout=60,
+            )
+            if result.returncode != 0:
+                log.error("  build_site.py failed for slot %d: %s", slot, result.stderr[:500])
+        except subprocess.TimeoutExpired:
+            log.error("  build_site.py timed out for slot %d", slot)
 
     # Clean up temp articles
     Path(articles_path).unlink(missing_ok=True)
 
-    log.info("  Done: %s/%s", track_name, date_str)
+    log.info("  Done: %s/%s (%d/%d slots)", track_name, date_str,
+             SESSIONS_PER_DAY - slot_failures, SESSIONS_PER_DAY)
     return True
 
 

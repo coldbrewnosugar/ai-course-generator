@@ -1394,7 +1394,10 @@ def render_session_html(session_path: Path, track_name: str = "", date_str: str 
 
 
 def convert_session_to_html(track_name: str, date_str: str) -> Path | None:
-    """Render session JSON to HTML. Returns the output HTML path, or None on failure."""
+    """Render session JSON to HTML. Returns the output HTML path, or None on failure.
+
+    date_str can be 'YYYY-MM-DD' (legacy) or 'YYYY-MM-DD-N' (slot).
+    """
     session_path = Path(OUTPUT_DIR) / track_name / f"{date_str}.json"
     out_dir = Path(SITE_DIR) / track_name
     out_path = out_dir / f"{date_str}.html"
@@ -1405,7 +1408,10 @@ def convert_session_to_html(track_name: str, date_str: str) -> Path | None:
 
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    html = render_session_html(session_path, track_name, date_str)
+    # Extract the base date for render (strip slot suffix if present)
+    render_date = date_str[:10] if len(date_str) > 10 else date_str
+
+    html = render_session_html(session_path, track_name, render_date)
     if html is None:
         return None
 
@@ -1417,7 +1423,10 @@ def convert_session_to_html(track_name: str, date_str: str) -> Path | None:
 # ── Title extraction ───────────────────────────────────────────────────────────
 
 def get_course_title(track_name: str, date_str: str) -> str:
-    """Extract title from session JSON, or return a default."""
+    """Extract title from session JSON, or return a default.
+
+    date_str can be 'YYYY-MM-DD' (legacy) or 'YYYY-MM-DD-N' (slot).
+    """
     session_path = Path(OUTPUT_DIR) / track_name / f"{date_str}.json"
     try:
         with open(session_path, encoding="utf-8") as fh:
@@ -1835,26 +1844,39 @@ def generate_index_html(site_dir: Path) -> Path:
     Scan site_dir for all HTML course files, build a weekly calendar index.
     Returns the index path.
     """
-    # Collect all course HTML files: {date_str: {track: {title, url}}}
+    # Collect all course HTML files
+    # all_dates: {date -> {track -> [{title, url, slot}]}}
     courses: dict[str, list[dict]] = {t: [] for t in TRACK_ORDER}
-    all_dates: dict[str, dict] = {}  # date -> track -> {title, rel_path}
+    all_dates: dict[str, dict] = {}  # date -> track -> list of sessions
 
     for track_name in TRACK_ORDER:
         track_dir = site_dir / track_name
         if not track_dir.is_dir():
             continue
-        for html_file in sorted(track_dir.glob("????-??-??.html"), reverse=True):
-            date_str = html_file.stem
-            title    = get_course_title(track_name, date_str)
+        # Match both legacy (YYYY-MM-DD.html) and slot (YYYY-MM-DD-N.html)
+        for html_file in sorted(track_dir.glob("????-??-??*.html"), reverse=True):
+            stem = html_file.stem  # e.g. "2026-03-01" or "2026-03-01-2"
+            # Parse date and optional slot
+            import re as _re
+            m = _re.match(r"^(\d{4}-\d{2}-\d{2})(?:-(\d+))?$", stem)
+            if not m:
+                continue
+            base_date = m.group(1)
+            slot = m.group(2)  # None for legacy files
+
+            title    = get_course_title(track_name, stem)
             rel_path = f"{track_name}/{html_file.name}"
             courses[track_name].append({
-                "date": date_str, "title": title, "rel_path": rel_path,
+                "date": base_date, "title": title, "rel_path": rel_path,
+                "slot": slot,
             })
-            if date_str not in all_dates:
-                all_dates[date_str] = {}
-            all_dates[date_str][track_name] = {
-                "title": title, "url": rel_path,
-            }
+            if base_date not in all_dates:
+                all_dates[base_date] = {}
+            if track_name not in all_dates[base_date]:
+                all_dates[base_date][track_name] = []
+            all_dates[base_date][track_name].append({
+                "title": title, "url": rel_path, "slot": slot,
+            })
 
     total_courses = sum(len(v) for v in courses.values())
 
@@ -1887,13 +1909,15 @@ def generate_index_html(site_dir: Path) -> Path:
         for track_name in TRACK_ORDER:
             if track_name in day_data:
                 meta = TRACK_META[track_name]
-                entry = day_data[track_name]
-                title_esc = _html_escape(entry["title"])
-                pills_html += (
-                    f'<a href="{entry["url"]}" class="course-pill {meta["css_class"]}" title="{title_esc}">'
-                    f'<span class="pill-shape">{meta["shape"]}</span>'
-                    f'{title_esc}</a>'
-                )
+                entries = day_data[track_name]  # list of sessions
+                for entry in entries:
+                    title_esc = _html_escape(entry["title"])
+                    slot_label = f' #{entry["slot"]}' if entry.get("slot") else ""
+                    pills_html += (
+                        f'<a href="{entry["url"]}" class="course-pill {meta["css_class"]}" title="{title_esc}">'
+                        f'<span class="pill-shape">{meta["shape"]}</span>'
+                        f'{title_esc}</a>'
+                    )
 
         initial_week_html += f"""
       <div class="day-col{today_cls}{empty_cls}">
@@ -1973,7 +1997,7 @@ function renderWeek() {
     const ds = fmt(d);
     const isToday = ds === TODAY;
     const dayData = COURSES[ds] || {};
-    const hasCourses = Object.keys(dayData).length > 0;
+    const hasCourses = Object.values(dayData).some(v => Array.isArray(v) ? v.length > 0 : !!v);
     const todayCls = isToday ? " is-today" : "";
     const emptyCls = !hasCourses ? " empty-day" : "";
 
@@ -1981,9 +2005,12 @@ function renderWeek() {
     TRACK_ORDER.forEach(t => {
       if (dayData[t]) {
         const m = TRACK_META[t];
-        const title = dayData[t].title.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
-        pills += '<a href="'+dayData[t].url+'" class="course-pill '+m.css+'" title="'+title+'">' +
-          '<span class="pill-shape">'+m.shape+'</span>'+title+'</a>';
+        const entries = Array.isArray(dayData[t]) ? dayData[t] : [dayData[t]];
+        entries.forEach(entry => {
+          const title = entry.title.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+          pills += '<a href="'+entry.url+'" class="course-pill '+m.css+'" title="'+title+'">' +
+            '<span class="pill-shape">'+m.shape+'</span>'+title+'</a>';
+        });
       }
     });
 
@@ -2114,7 +2141,7 @@ def main():
     parser.add_argument("track", nargs="?", choices=list(TRACKS.keys()),
                         help="Track name")
     parser.add_argument("date",  nargs="?",
-                        help="Date string YYYY-MM-DD")
+                        help="Date string YYYY-MM-DD or YYYY-MM-DD-N (slot)")
     parser.add_argument("--index-only", action="store_true",
                         help="Only regenerate index.html, skip session rendering")
     args = parser.parse_args()

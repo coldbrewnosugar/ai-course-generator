@@ -68,6 +68,9 @@ should_run_track() {
     esac
 }
 
+# ── Sessions per day ──────────────────────────────────────────────────────────
+SESSIONS_PER_DAY=3
+
 # ── Process one track ──────────────────────────────────────────────────────────
 run_track() {
     local track="$1"
@@ -78,7 +81,7 @@ run_track() {
 
     echo "   Step 2/4: Fetching RSS feeds..."
 
-    # fetch_feeds.py prints the JSON output path to stdout
+    # fetch_feeds.py prints the JSON output path to stdout — fetch once, reuse
     JSON_PATH=$("${PYTHON}" "${SCRIPT_DIR}/fetch_feeds.py" "${track}" | tail -1)
 
     if [[ -z "${JSON_PATH}" || ! -f "${JSON_PATH}" ]]; then
@@ -87,25 +90,62 @@ run_track() {
     fi
     echo "   Articles JSON: ${JSON_PATH}"
 
-    echo "   Step 3/4: Generating workshop session (this may take 3-5 min)..."
-    local gen_start=$(date +%s)
-    SESSION_PATH=$("${PYTHON}" "${SCRIPT_DIR}/generate_course.py" "${track}" "${JSON_PATH}" | tail -1)
-    local gen_end=$(date +%s)
-    echo "   Session generation took $(( gen_end - gen_start ))s"
+    echo "   Step 3/4: Generating ${SESSIONS_PER_DAY} workshop sessions (this may take 10-15 min)..."
 
-    if [[ -z "${SESSION_PATH}" || ! -f "${SESSION_PATH}" ]]; then
-        echo "   ERROR: generate_course.py did not produce a session (got: '${SESSION_PATH}')"
+    local exclude_topics=""
+    local slot_failures=0
+
+    for slot in $(seq 1 ${SESSIONS_PER_DAY}); do
+        echo "   ── Slot ${slot}/${SESSIONS_PER_DAY}..."
+        local gen_start=$(date +%s)
+
+        local exclude_arg=""
+        if [[ -n "${exclude_topics}" ]]; then
+            exclude_arg="--exclude-topics"
+        fi
+
+        if [[ -n "${exclude_topics}" ]]; then
+            SESSION_PATH=$("${PYTHON}" "${SCRIPT_DIR}/generate_course.py" "${track}" "${JSON_PATH}" --slot "${slot}" --exclude-topics "${exclude_topics}" | tail -1)
+        else
+            SESSION_PATH=$("${PYTHON}" "${SCRIPT_DIR}/generate_course.py" "${track}" "${JSON_PATH}" --slot "${slot}" | tail -1)
+        fi
+        local gen_end=$(date +%s)
+        echo "      Generation took $(( gen_end - gen_start ))s"
+
+        if [[ -z "${SESSION_PATH}" || ! -f "${SESSION_PATH}" ]]; then
+            echo "      WARNING: Slot ${slot} failed (got: '${SESSION_PATH}')"
+            slot_failures=$(( slot_failures + 1 ))
+            continue
+        fi
+        echo "      Session: ${SESSION_PATH}"
+
+        # Extract the topic title from the session JSON to exclude from future slots
+        local topic_title
+        topic_title=$("${PYTHON}" -c "import json,sys; d=json.load(open(sys.argv[1])); print(d.get('session_title',''))" "${SESSION_PATH}" 2>/dev/null || true)
+        if [[ -n "${topic_title}" ]]; then
+            if [[ -n "${exclude_topics}" ]]; then
+                exclude_topics="${exclude_topics}||${topic_title}"
+            else
+                exclude_topics="${topic_title}"
+            fi
+        fi
+    done
+
+    if [[ ${slot_failures} -eq ${SESSIONS_PER_DAY} ]]; then
+        echo "   ERROR: All ${SESSIONS_PER_DAY} slots failed for track '${track}'"
         rm -f "${JSON_PATH}"
         return 1
     fi
-    echo "   Session: ${SESSION_PATH}"
 
     echo "   Step 4/4: Building HTML..."
-    "${PYTHON}" "${SCRIPT_DIR}/build_site.py" "${track}" "${DATE_STR}"
+    for slot in $(seq 1 ${SESSIONS_PER_DAY}); do
+        local slot_date="${DATE_STR}-${slot}"
+        "${PYTHON}" "${SCRIPT_DIR}/build_site.py" "${track}" "${slot_date}" 2>/dev/null || true
+    done
 
     # Cleanup temp JSON
     rm -f "${JSON_PATH}"
-    echo "   ✓ Track '${track}' complete"
+    echo "   ✓ Track '${track}' complete (${slot_failures} slot failures)"
 }
 
 # ── Main loop ──────────────────────────────────────────────────────────────────

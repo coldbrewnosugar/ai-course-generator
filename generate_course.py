@@ -28,7 +28,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 from config import (
     TRACKS, PLAN_SYSTEM_PROMPT, SESSION_SYSTEM_PROMPT, OUTPUT_DIR, LOG_DIR,
-    CLAUDE_MODEL, CLAUDE_TIMEOUT
+    CLAUDE_MODEL, CLAUDE_TIMEOUT, SESSIONS_PER_DAY
 )
 
 # ── Logging ────────────────────────────────────────────────────────────────────
@@ -195,9 +195,21 @@ def build_articles_context(articles: list[dict]) -> str:
     return "\n".join(parts)
 
 
-def build_plan_prompt(track_name: str, articles: list[dict], date_str: str) -> str:
+def build_plan_prompt(track_name: str, articles: list[dict], date_str: str,
+                      excluded_topics: list[str] | None = None) -> str:
     track = TRACKS[track_name]
     articles_text = build_articles_context(articles)
+
+    exclude_block = ""
+    if excluded_topics:
+        exclude_list = "\n".join(f"- {t}" for t in excluded_topics)
+        exclude_block = f"""
+IMPORTANT — AVOID THESE TOPICS (already covered in other sessions today):
+{exclude_list}
+
+Pick a DIFFERENT topic from the ones listed above. Choose something distinct.
+
+"""
 
     return f"""# Workshop Planning — {track['label']} — {date_str}
 
@@ -206,8 +218,7 @@ def build_plan_prompt(track_name: str, articles: list[dict], date_str: str) -> s
 ## Today's Articles
 {articles_text}
 ---
-
-Pick the ONE most interesting, buildable topic from these articles. Something someone could actually sit down and hack on.
+{exclude_block}Pick the ONE most interesting, buildable topic from these articles. Something someone could actually sit down and hack on.
 
 Return a JSON object:
 {{
@@ -406,6 +417,10 @@ def main():
     parser.add_argument("track",         choices=list(TRACKS.keys()),
                         help="Track name")
     parser.add_argument("articles_json", help="Path to articles JSON from fetch_feeds.py")
+    parser.add_argument("--slot", type=int, default=None,
+                        help="Slot number (1..N). Output becomes {date}-{slot}.json")
+    parser.add_argument("--exclude-topics", default="",
+                        help="Topics to exclude, separated by '||'")
     args = parser.parse_args()
 
     track_name   = args.track
@@ -430,7 +445,13 @@ def main():
     # Output path
     out_dir = Path(OUTPUT_DIR) / track_name
     out_dir.mkdir(parents=True, exist_ok=True)
-    out_path = out_dir / f"{date_str}.json"
+    if args.slot is not None:
+        out_path = out_dir / f"{date_str}-{args.slot}.json"
+    else:
+        out_path = out_dir / f"{date_str}.json"
+
+    # Parse excluded topics
+    excluded_topics = [t.strip() for t in args.exclude_topics.split("||") if t.strip()]
 
     # Fallback if no articles
     if len(articles) == 0:
@@ -447,7 +468,8 @@ def main():
     # ── Step 1: Plan topic ───────────────────────────────────────────────────
     log.info("=" * 60)
     log.info("STEP 1/3: Planning topic...")
-    plan_prompt = build_plan_prompt(track_name, articles, date_str)
+    plan_prompt = build_plan_prompt(track_name, articles, date_str,
+                                    excluded_topics=excluded_topics)
     plan_raw = call_claude(PLAN_SYSTEM_PROMPT, plan_prompt, label="plan")
 
     if plan_raw is None:
