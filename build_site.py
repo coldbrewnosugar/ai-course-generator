@@ -1527,10 +1527,11 @@ body {
 }
 .explainer p {
   font-family: var(--sans);
-  font-size: 0.85rem;
+  font-size: 0.95rem;
   line-height: 1.6;
   color: var(--muted);
   margin: 0;
+  text-wrap: balance;
 }
 .explainer strong {
   color: var(--ink);
