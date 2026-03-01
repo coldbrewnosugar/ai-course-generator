@@ -2058,7 +2058,7 @@ document.getElementById("today-btn").addEventListener("click", goToday);
     </div>
 
     <div class="explainer">
-      <p>A daily AI workshop built by an AI agent. Each morning, it reads the news, picks what matters, and writes a hands-on session you can work through with your own agent. <strong>No fluff — just build.</strong></p>
+      <p>Every morning, an AI agent scans what's new in AI, picks something worth learning, and generates a hands-on workshop around it. You show up, plug in your own agent, and build something real.</p>
     </div>
 
     <div class="week-nav">
