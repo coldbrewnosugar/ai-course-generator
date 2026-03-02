@@ -288,16 +288,16 @@ body.track-audio { --accent: #6B5B95; --accent-hover: #574A7D; --accent-light: r
   background: var(--bg-elevated);
 }
 .callout-tip {
-  border-color: rgba(59,130,246,0.25);
-  background: rgba(59,130,246,0.04);
+  border-color: rgba(43,107,107,0.2);
+  background: rgba(43,107,107,0.04);
 }
 .callout-warning {
-  border-color: rgba(239,68,68,0.4);
-  background: rgba(239,68,68,0.04);
+  border-color: rgba(196,86,58,0.3);
+  background: rgba(196,86,58,0.04);
 }
 .callout-api-key-note {
-  border-color: rgba(234,179,8,0.3);
-  background: rgba(234,179,8,0.05);
+  border-color: rgba(202,138,4,0.25);
+  background: rgba(202,138,4,0.04);
 }
 .callout-label {
   font-family: var(--mono);
@@ -307,8 +307,8 @@ body.track-audio { --accent: #6B5B95; --accent-hover: #574A7D; --accent-light: r
   text-transform: uppercase;
   margin-bottom: 0.35rem;
 }
-.callout-tip .callout-label { color: var(--blue); }
-.callout-warning .callout-label { color: var(--red); }
+.callout-tip .callout-label { color: var(--accent); }
+.callout-warning .callout-label { color: #B84533; }
 .callout-api-key-note .callout-label { color: #CA8A04; }
 
 /* ── Reveals (details/summary) ── */
@@ -439,14 +439,14 @@ body.track-audio { --accent: #6B5B95; --accent-hover: #574A7D; --accent-light: r
   display: block;
 }
 .decision-feedback.correct {
-  border-color: var(--green);
-  background: rgba(34,197,94,0.06);
-  color: #15803D;
+  border-color: #3D9A6D;
+  background: rgba(61,154,109,0.06);
+  color: #2D7A54;
 }
 .decision-feedback.incorrect {
-  border-color: var(--red);
-  background: rgba(239,68,68,0.05);
-  color: #DC2626;
+  border-color: #C4563A;
+  background: rgba(196,86,58,0.05);
+  color: #A8452E;
 }
 
 /* ── Agent interaction ── */
@@ -736,14 +736,14 @@ body.track-audio { --accent: #6B5B95; --accent-hover: #574A7D; --accent-light: r
   border-color: var(--muted);
 }
 .oa-toggle:checked + .oa-toggle-label.vote-up {
-  background: rgba(34,197,94,0.1);
-  border-color: var(--green);
-  color: var(--green);
+  background: rgba(61,154,109,0.1);
+  border-color: #3D9A6D;
+  color: #3D9A6D;
 }
 .oa-toggle:checked + .oa-toggle-label.vote-down {
-  background: rgba(239,68,68,0.08);
-  border-color: var(--red);
-  color: var(--red);
+  background: rgba(196,86,58,0.08);
+  border-color: #C4563A;
+  color: #C4563A;
 }
 .oa-submit-row {
   margin-top: 1rem;
@@ -765,7 +765,7 @@ body.track-audio { --accent: #6B5B95; --accent-hover: #574A7D; --accent-light: r
 }
 .oa-submit-btn:hover { background: #27272A; }
 .oa-submit-btn:disabled {
-  background: var(--surface);
+  background: var(--border);
   color: var(--muted);
   cursor: default;
 }
