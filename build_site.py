@@ -44,12 +44,12 @@ log = logging.getLogger(__name__)
 SESSION_CSS = r"""
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;0,9..144,800;1,9..144,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 :root {
-  --bg: #FAFAFA;
-  --bg-subtle: #F4F4F5;
-  --bg-elevated: #FFFFFF;
-  --ink: #18181B;
-  --ink-secondary: #52525B;
-  --muted: #A1A1AA;
+  --bg: #F7F4F0;
+  --bg-subtle: #EFEBE5;
+  --bg-elevated: #FFFDF9;
+  --ink: #1C1917;
+  --ink-secondary: #57534E;
+  --muted: #A8A29E;
   --accent: #2B6B6B;
   --accent-hover: #1F5252;
   --accent-light: rgba(43,107,107,0.06);
@@ -58,9 +58,9 @@ SESSION_CSS = r"""
   --red: #EF4444;
   --yellow: #EAB308;
   --green: #22C55E;
-  --surface: #F4F4F5;
-  --border: #E4E4E7;
-  --border-subtle: #F4F4F5;
+  --surface: #EFEBE5;
+  --border: #DDD7CF;
+  --border-subtle: #EFEBE5;
   --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
   --shadow-md: 0 2px 8px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.03);
   --shadow-lg: 0 4px 16px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.02);
@@ -1612,6 +1612,11 @@ body {
   border-color: var(--ink);
   box-shadow: var(--shadow-md);
 }
+.day-card.is-empty {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
 .day-card-pills {
   display: flex;
   flex-direction: column;
@@ -1920,6 +1925,8 @@ function renderDay() {
   const dayData = COURSES[ds] || {};
   const hasCourses = Object.values(dayData).some(v => Array.isArray(v) ? v.length > 0 : !!v);
 
+  card.classList.toggle("is-empty", !hasCourses);
+
   if (!hasCourses) {
     card.innerHTML = '<div class="empty-week-msg">No sessions on this day</div>';
     return;
@@ -2010,7 +2017,7 @@ document.getElementById("today-btn").addEventListener("click", goToday);
       <button id="today-btn" class="today-btn">Today</button>
     </div>
 
-    <div class="day-card" id="day-card">{initial_day_html}
+    <div class="day-card{' is-empty' if not day_data else ''}" id="day-card">{initial_day_html}
     </div>
 
     <div class="legend">{legend_html}</div>
