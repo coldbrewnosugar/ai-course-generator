@@ -30,6 +30,7 @@ from config import (
     TRACKS, PLAN_SYSTEM_PROMPT, SESSION_SYSTEM_PROMPT, OUTPUT_DIR, LOG_DIR,
     CLAUDE_MODEL, CLAUDE_TIMEOUT, SESSIONS_PER_DAY
 )
+from article_history import filter_used_articles, record_used_urls
 
 # ── Logging ────────────────────────────────────────────────────────────────────
 Path(LOG_DIR).mkdir(parents=True, exist_ok=True)
@@ -442,6 +443,10 @@ def main():
     log.info("Loaded %d articles for track '%s' (date=%s)",
              len(articles), track_name, date_str)
 
+    # Filter out articles already used by earlier slots today (or recent days)
+    articles = filter_used_articles(articles, label=f"{track_name}/slot{args.slot or 0}")
+    log.info("After dedup filter: %d articles available", len(articles))
+
     # Output path
     out_dir = Path(OUTPUT_DIR) / track_name
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -550,6 +555,12 @@ def main():
     # Save
     out_path.write_text(json.dumps(session, indent=2), encoding="utf-8")
     log.info("Session saved to %s", out_path)
+
+    # Record used article URLs so future slots/days skip them
+    used_urls = [s.get("url", "") for s in session.get("sources", [])]
+    record_used_urls(used_urls, date_str)
+    log.info("Recorded %d source URLs in article history", len(used_urls))
+
     print(str(out_path))
     return 0
 

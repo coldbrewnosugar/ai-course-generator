@@ -25,6 +25,7 @@ from dateutil import parser as dateutil_parser
 
 sys.path.insert(0, str(Path(__file__).parent))
 from config import TRACKS, LOOKBACK_HOURS, MAX_ARTICLES, MAX_ARTICLE_CHARS, LOG_DIR, BASE_DIR
+from article_history import filter_used_articles
 
 # ── Tag extraction ────────────────────────────────────────────────────────────
 TAG_KEYWORDS = {
@@ -237,6 +238,9 @@ def fetch_track_articles(track_name: str) -> list[dict]:
         if a["url"] and a["url"] not in seen_urls:
             seen_urls.add(a["url"])
             unique.append(a)
+
+    # Filter out articles already used in recent sessions
+    unique = filter_used_articles(unique, label=track_name)
 
     # Extract tags for all articles
     for a in unique:

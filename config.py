@@ -15,6 +15,8 @@ LOG_DIR     = os.path.join(BASE_DIR, "logs")
 LOOKBACK_HOURS   = 30     # articles published within this window
 MAX_ARTICLES     = 12     # cap per track per run
 MAX_ARTICLE_CHARS = 3500  # truncate body at this length
+USED_ARTICLES_PATH = os.path.join(os.path.expanduser("~/ai-courses"), "used_articles.json")
+USED_ARTICLES_MAX_AGE_DAYS = 7  # forget articles after this many days
 
 # ── Claude CLI settings ────────────────────────────────────────────────────────
 SESSIONS_PER_DAY = 3  # number of different sessions to generate per track per day
