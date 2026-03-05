@@ -267,7 +267,7 @@ def build_session_prompt(track_name: str, plan: dict, articles: list[dict],
 {articles_text}
 ---
 
-Generate a complete interactive workshop session as JSON. The session should feel like a study buddy walking someone through building something cool — using AI agents as the tool, not writing code by hand.
+Generate a complete interactive workshop session as JSON. The session should read like a well-structured technical workshop — precise, authoritative, and substantive — guiding the reader through building with AI agents rather than writing code by hand.
 
 AGENT-FIRST APPROACH:
 - The user never writes code from scratch. They prompt an AI agent (Claude, ChatGPT, etc.) to build things for them.
