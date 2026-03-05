@@ -1869,21 +1869,8 @@ def generate_index_html(site_dir: Path) -> Path:
     dow = day_names[(today.weekday() + 1) % 7]
     day_label = f"{dow}, {today.strftime('%b')} {today.day}, {today.year}"
 
-    # Legend
+    # Legend — omitted (single track now)
     legend_html = ""
-    for track_name in TRACK_ORDER:
-        meta = TRACK_META[track_name]
-        label = TRACKS.get(track_name, {}).get("label", track_name)
-        schedule = TRACKS.get(track_name, {}).get("schedule", "")
-        sched_display = {"daily": "Daily", "mon,wed,fri": "M/W/F", "tue,thu": "T/Th"}.get(schedule, schedule)
-        legend_html += (
-            f'<div class="legend-item {meta["css_class"]}">'
-            f'<span class="legend-swatch"></span>'
-            f'<span class="legend-shape">{meta["shape"]}</span>'
-            f'{_html_escape(label)}'
-            f'<span style="color:var(--muted);font-size:0.6rem">({sched_display})</span>'
-            f'</div>'
-        )
 
     now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
 
@@ -2020,11 +2007,8 @@ document.getElementById("today-btn").addEventListener("click", goToday);
     <div class="day-card{' is-empty' if not day_data else ''}" id="day-card">{initial_day_html}
     </div>
 
-    <div class="legend">{legend_html}</div>
-
     <div class="stats-bar">
       <div><strong>{total_courses}</strong> session{"s" if total_courses != 1 else ""}</div>
-      <div><strong>{len(TRACK_ORDER)}</strong> tracks</div>
       <div>Updated <strong>{now_str}</strong></div>
     </div>
 
@@ -2059,7 +2043,7 @@ def main():
     parser = argparse.ArgumentParser(
         description="Render session JSON to HTML and regenerate site index."
     )
-    parser.add_argument("track", nargs="?", choices=list(TRACKS.keys()),
+    parser.add_argument("track", nargs="?",
                         help="Track name")
     parser.add_argument("date",  nargs="?",
                         help="Date string YYYY-MM-DD or YYYY-MM-DD-N (slot)")

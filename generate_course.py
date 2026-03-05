@@ -28,7 +28,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 from config import (
     TRACKS, PLAN_SYSTEM_PROMPT, SESSION_SYSTEM_PROMPT, OUTPUT_DIR, LOG_DIR,
-    CLAUDE_MODEL, CLAUDE_TIMEOUT, SESSIONS_PER_DAY
+    CLAUDE_MODEL, CLAUDE_TIMEOUT, SCORE_THRESHOLD, MAX_SESSIONS_PER_DAY,
+    SCORE_SYSTEM_PROMPT
 )
 from article_history import filter_used_articles, record_used_urls
 
@@ -177,6 +178,45 @@ def extract_json_from_response(raw: str) -> dict | list | None:
                 pass
 
     return None
+
+
+# ── Article scoring ───────────────────────────────────────────────────────
+
+def score_articles(articles: list[dict]) -> list[dict] | None:
+    """Call Claude to score articles 1-10 on significance/interestingness.
+    Returns list of {"article_index": N, "score": N, "reason": "..."} or None on failure."""
+    items = []
+    for i, a in enumerate(articles):
+        summary = a.get("summary", "")
+        if summary and len(summary) > 200:
+            summary = summary[:200] + "..."
+        items.append(f'{i+1}. "{a["title"]}" (source: {a.get("source", "unknown")})')
+        if summary:
+            items.append(f'   Summary: {summary}')
+
+    prompt = f"""Score each of these articles from 1 to 10 on how interesting and impactful they would be for AI practitioners learning about the latest developments.
+
+{chr(10).join(items)}
+
+Return a JSON array:
+[
+  {{"article_index": 1, "score": 7, "reason": "one line explanation"}},
+  ...
+]
+
+Include ALL articles in your response, scored from 1-10."""
+
+    raw = call_claude(SCORE_SYSTEM_PROMPT, prompt, label="scoring", timeout=120)
+    if raw is None:
+        return None
+
+    result = extract_json_from_response(raw)
+    if not isinstance(result, list):
+        log.warning("Article scoring: expected list, got %s", type(result))
+        return None
+
+    log.info("Scored %d articles", len(result))
+    return result
 
 
 # ── Prompt builders ───────────────────────────────────────────────────────────
@@ -415,13 +455,14 @@ def main():
     parser = argparse.ArgumentParser(
         description="Generate a workshop session JSON using Claude CLI."
     )
-    parser.add_argument("track",         choices=list(TRACKS.keys()),
-                        help="Track name")
+    parser.add_argument("track",         help="Track name")
     parser.add_argument("articles_json", help="Path to articles JSON from fetch_feeds.py")
     parser.add_argument("--slot", type=int, default=None,
                         help="Slot number (1..N). Output becomes {date}-{slot}.json")
     parser.add_argument("--exclude-topics", default="",
                         help="Topics to exclude, separated by '||'")
+    parser.add_argument("--score-only", action="store_true",
+                        help="Score articles and output filtered JSON, then exit")
     args = parser.parse_args()
 
     track_name   = args.track
@@ -442,6 +483,60 @@ def main():
 
     log.info("Loaded %d articles for track '%s' (date=%s)",
              len(articles), track_name, date_str)
+
+    # ── Score-only mode ──────────────────────────────────────────────────
+    if args.score_only:
+        if not articles:
+            log.warning("No articles to score")
+            scored_path = f"/tmp/ai_course_scored_{track_name}_{date_str}.json"
+            scored_payload = {"track": track_name, "date": date_str, "count": 0, "articles": [],
+                              "candidate_articles": candidate_articles}
+            with open(scored_path, "w", encoding="utf-8") as fh:
+                json.dump(scored_payload, fh, indent=2, ensure_ascii=False)
+            print(scored_path)
+            return 0
+
+        scores = score_articles(articles)
+        if scores is None:
+            log.error("Scoring call failed")
+            sys.exit(1)
+
+        # Build a map of article_index -> score info
+        score_map = {}
+        for s in scores:
+            idx = s.get("article_index")
+            if idx is not None:
+                score_map[idx] = s
+
+        # Filter to articles meeting threshold, cap at MAX_SESSIONS_PER_DAY
+        qualifying = []
+        for i, art in enumerate(articles):
+            info = score_map.get(i + 1, {})
+            art_score = info.get("score", 0)
+            art["claude_score"] = art_score
+            art["claude_score_reason"] = info.get("reason", "")
+            if art_score >= SCORE_THRESHOLD:
+                qualifying.append(art)
+
+        qualifying = qualifying[:MAX_SESSIONS_PER_DAY]
+        log.info("Qualifying articles (score >= %d): %d", SCORE_THRESHOLD, len(qualifying))
+        for q in qualifying:
+            log.info("  [%d] %s — %s", q["claude_score"], q["title"], q["claude_score_reason"])
+
+        scored_path = f"/tmp/ai_course_scored_{track_name}_{date_str}.json"
+        scored_payload = {
+            "track": track_name,
+            "date": date_str,
+            "count": len(qualifying),
+            "articles": qualifying,
+            "candidate_articles": candidate_articles,
+        }
+        with open(scored_path, "w", encoding="utf-8") as fh:
+            json.dump(scored_payload, fh, indent=2, ensure_ascii=False)
+
+        log.info("Scored articles written to %s", scored_path)
+        print(scored_path)
+        return 0
 
     # Filter out articles already used by earlier slots today (or recent days)
     articles = filter_used_articles(articles, label=f"{track_name}/slot{args.slot or 0}")

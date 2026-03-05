@@ -275,8 +275,7 @@ def fetch_track_articles(track_name: str) -> list[dict]:
 
 def main():
     parser = argparse.ArgumentParser(description="Fetch RSS articles for an AI course track.")
-    parser.add_argument("track", choices=list(TRACKS.keys()),
-                        help="Track to fetch articles for")
+    parser.add_argument("track", help="Track to fetch articles for")
     args = parser.parse_args()
 
     track_name = args.track

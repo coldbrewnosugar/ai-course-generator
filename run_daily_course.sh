@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # run_daily_course.sh — Master orchestrator for Tinker (daily AI workshop generator)
 #
-# Runs all tracks scheduled for today, renders to HTML, pushes to GitHub Pages.
+# Fetches articles, scores them with Claude, generates sessions for qualifying
+# articles, renders to HTML, and pushes to GitHub Pages.
 # Designed to be called by cron at 5:30 AM daily.
 
 set -euo pipefail
@@ -13,7 +14,6 @@ LOG_DIR="${SCRIPT_DIR}/logs"
 SITE_DIR="${HOME}/ai-courses-site"
 
 DATE_STR=$(date +%Y-%m-%d)
-DAY_OF_WEEK=$(date +%u)   # 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat, 7=Sun
 
 LOG_FILE="${LOG_DIR}/course_${DATE_STR}.log"
 mkdir -p "${LOG_DIR}"
@@ -22,7 +22,7 @@ mkdir -p "${LOG_DIR}"
 exec > >(tee -a "${LOG_FILE}") 2>&1
 
 echo "============================================================"
-echo "  Tinker — ${DATE_STR} (day=${DAY_OF_WEEK})"
+echo "  Tinker — ${DATE_STR}"
 echo "  Started at $(date '+%Y-%m-%d %H:%M:%S %Z')"
 echo "============================================================"
 
@@ -39,142 +39,101 @@ else
 fi
 echo "Using Python: ${PYTHON}"
 
-# ── Track schedule ─────────────────────────────────────────────────────────────
-# Returns true (exit 0) if track should run today
-should_run_track() {
-    local track="$1"
-    case "${track}" in
-        general)
-            return 0  # daily
-            ;;
-        image-gen)
-            # Mon=1, Wed=3, Fri=5
-            if [[ "${DAY_OF_WEEK}" == "1" || "${DAY_OF_WEEK}" == "3" || "${DAY_OF_WEEK}" == "5" ]]; then
-                return 0
-            fi
-            return 1
-            ;;
-        audio)
-            # Tue=2, Thu=4
-            if [[ "${DAY_OF_WEEK}" == "2" || "${DAY_OF_WEEK}" == "4" ]]; then
-                return 0
-            fi
-            return 1
-            ;;
-        *)
-            echo "WARNING: Unknown track '${track}'"
-            return 1
-            ;;
-    esac
-}
+TRACK="general"
+FAILED=0
 
-# ── Sessions per day ──────────────────────────────────────────────────────────
-SESSIONS_PER_DAY=3
+echo ""
+echo "── Step 1/5: Refreshing preferences from votes..."
+"${PYTHON}" "${SCRIPT_DIR}/preferences.py" || echo "   WARNING: preferences.py failed (continuing anyway)"
 
-# ── Process one track ──────────────────────────────────────────────────────────
-run_track() {
-    local track="$1"
-    echo ""
-    echo "── Track: ${track} ──────────────────────────────────────────────"
-    echo "   Step 1/4: Refreshing preferences from votes..."
-    "${PYTHON}" "${SCRIPT_DIR}/preferences.py" || echo "   WARNING: preferences.py failed (continuing anyway)"
+echo ""
+echo "── Step 2/5: Fetching RSS feeds..."
+JSON_PATH=$("${PYTHON}" "${SCRIPT_DIR}/fetch_feeds.py" "${TRACK}" | tail -1)
 
-    echo "   Step 2/4: Fetching RSS feeds..."
+if [[ -z "${JSON_PATH}" || ! -f "${JSON_PATH}" ]]; then
+    echo "   ERROR: fetch_feeds.py did not produce a valid JSON file (got: '${JSON_PATH}')"
+    exit 1
+fi
+echo "   Articles JSON: ${JSON_PATH}"
 
-    # fetch_feeds.py prints the JSON output path to stdout — fetch once, reuse
-    JSON_PATH=$("${PYTHON}" "${SCRIPT_DIR}/fetch_feeds.py" "${track}" | tail -1)
+echo ""
+echo "── Step 3/5: Scoring articles with Claude..."
+SCORED_PATH=$("${PYTHON}" "${SCRIPT_DIR}/generate_course.py" "${TRACK}" "${JSON_PATH}" --score-only | tail -1)
 
-    if [[ -z "${JSON_PATH}" || ! -f "${JSON_PATH}" ]]; then
-        echo "   ERROR: fetch_feeds.py did not produce a valid JSON file (got: '${JSON_PATH}')"
-        return 1
-    fi
-    echo "   Articles JSON: ${JSON_PATH}"
-
-    echo "   Step 3/4: Generating ${SESSIONS_PER_DAY} workshop sessions (this may take 10-15 min)..."
-
-    local exclude_topics=""
-    local slot_failures=0
-
-    for slot in $(seq 1 ${SESSIONS_PER_DAY}); do
-        echo "   ── Slot ${slot}/${SESSIONS_PER_DAY}..."
-        local gen_start=$(date +%s)
-
-        local exclude_arg=""
-        if [[ -n "${exclude_topics}" ]]; then
-            exclude_arg="--exclude-topics"
-        fi
-
-        if [[ -n "${exclude_topics}" ]]; then
-            SESSION_PATH=$("${PYTHON}" "${SCRIPT_DIR}/generate_course.py" "${track}" "${JSON_PATH}" --slot "${slot}" --exclude-topics "${exclude_topics}" | tail -1)
-        else
-            SESSION_PATH=$("${PYTHON}" "${SCRIPT_DIR}/generate_course.py" "${track}" "${JSON_PATH}" --slot "${slot}" | tail -1)
-        fi
-        local gen_end=$(date +%s)
-        echo "      Generation took $(( gen_end - gen_start ))s"
-
-        if [[ -z "${SESSION_PATH}" || ! -f "${SESSION_PATH}" ]]; then
-            echo "      WARNING: Slot ${slot} failed (got: '${SESSION_PATH}')"
-            slot_failures=$(( slot_failures + 1 ))
-            continue
-        fi
-        echo "      Session: ${SESSION_PATH}"
-
-        # Extract the topic title from the session JSON to exclude from future slots
-        local topic_title
-        topic_title=$("${PYTHON}" -c "import json,sys; d=json.load(open(sys.argv[1])); print(d.get('session_title',''))" "${SESSION_PATH}" 2>/dev/null || true)
-        if [[ -n "${topic_title}" ]]; then
-            if [[ -n "${exclude_topics}" ]]; then
-                exclude_topics="${exclude_topics}||${topic_title}"
-            else
-                exclude_topics="${topic_title}"
-            fi
-        fi
-    done
-
-    if [[ ${slot_failures} -eq ${SESSIONS_PER_DAY} ]]; then
-        echo "   ERROR: All ${SESSIONS_PER_DAY} slots failed for track '${track}'"
-        rm -f "${JSON_PATH}"
-        return 1
-    fi
-
-    echo "   Step 4/4: Building HTML..."
-    for slot in $(seq 1 ${SESSIONS_PER_DAY}); do
-        local slot_date="${DATE_STR}-${slot}"
-        "${PYTHON}" "${SCRIPT_DIR}/build_site.py" "${track}" "${slot_date}" 2>/dev/null || true
-    done
-
-    # Cleanup temp JSON
+if [[ -z "${SCORED_PATH}" || ! -f "${SCORED_PATH}" ]]; then
+    echo "   ERROR: Scoring failed (got: '${SCORED_PATH}')"
     rm -f "${JSON_PATH}"
-    echo "   ✓ Track '${track}' complete (${slot_failures} slot failures)"
-}
+    exit 1
+fi
+echo "   Scored JSON: ${SCORED_PATH}"
 
-# ── Main loop ──────────────────────────────────────────────────────────────────
-TRACKS_RUN=()
-TRACKS_SKIPPED=()
-TRACKS_FAILED=()
+# Read number of qualifying articles
+NUM_SESSIONS=$("${PYTHON}" -c "import json,sys; d=json.load(open(sys.argv[1])); print(d['count'])" "${SCORED_PATH}" 2>/dev/null || echo "0")
+echo "   Qualifying articles: ${NUM_SESSIONS}"
 
-for track in general image-gen audio; do
-    if should_run_track "${track}"; then
-        if run_track "${track}"; then
-            TRACKS_RUN+=("${track}")
-        else
-            echo "   FAILED: ${track}"
-            TRACKS_FAILED+=("${track}")
-        fi
+if [[ "${NUM_SESSIONS}" -eq 0 ]]; then
+    echo "   No articles met the scoring threshold. Skipping generation."
+    rm -f "${JSON_PATH}" "${SCORED_PATH}"
+    exit 0
+fi
+
+echo ""
+echo "── Step 4/5: Generating ${NUM_SESSIONS} workshop sessions..."
+
+exclude_topics=""
+slot_failures=0
+
+for slot in $(seq 1 "${NUM_SESSIONS}"); do
+    echo "   ── Slot ${slot}/${NUM_SESSIONS}..."
+    gen_start=$(date +%s)
+
+    if [[ -n "${exclude_topics}" ]]; then
+        SESSION_PATH=$("${PYTHON}" "${SCRIPT_DIR}/generate_course.py" "${TRACK}" "${SCORED_PATH}" --slot "${slot}" --exclude-topics "${exclude_topics}" | tail -1)
     else
-        echo "   Skipping '${track}' (not scheduled today)"
-        TRACKS_SKIPPED+=("${track}")
+        SESSION_PATH=$("${PYTHON}" "${SCRIPT_DIR}/generate_course.py" "${TRACK}" "${SCORED_PATH}" --slot "${slot}" | tail -1)
+    fi
+    gen_end=$(date +%s)
+    echo "      Generation took $(( gen_end - gen_start ))s"
+
+    if [[ -z "${SESSION_PATH}" || ! -f "${SESSION_PATH}" ]]; then
+        echo "      WARNING: Slot ${slot} failed (got: '${SESSION_PATH}')"
+        slot_failures=$(( slot_failures + 1 ))
+        continue
+    fi
+    echo "      Session: ${SESSION_PATH}"
+
+    # Extract the topic title from the session JSON to exclude from future slots
+    topic_title=$("${PYTHON}" -c "import json,sys; d=json.load(open(sys.argv[1])); print(d.get('session_title',''))" "${SESSION_PATH}" 2>/dev/null || true)
+    if [[ -n "${topic_title}" ]]; then
+        if [[ -n "${exclude_topics}" ]]; then
+            exclude_topics="${exclude_topics}||${topic_title}"
+        else
+            exclude_topics="${topic_title}"
+        fi
     fi
 done
 
+if [[ ${slot_failures} -eq ${NUM_SESSIONS} ]]; then
+    echo "   ERROR: All ${NUM_SESSIONS} slots failed"
+    FAILED=1
+fi
+
+echo ""
+echo "── Step 5/5: Building HTML..."
+for slot in $(seq 1 "${NUM_SESSIONS}"); do
+    slot_date="${DATE_STR}-${slot}"
+    "${PYTHON}" "${SCRIPT_DIR}/build_site.py" "${TRACK}" "${slot_date}" 2>/dev/null || true
+done
+
+# Cleanup temp JSON
+rm -f "${JSON_PATH}" "${SCORED_PATH}"
+
 echo ""
 echo "── Summary ──────────────────────────────────────────────────"
-echo "   Completed:  ${TRACKS_RUN[*]:-none}"
-echo "   Skipped:    ${TRACKS_SKIPPED[*]:-none}"
-echo "   Failed:     ${TRACKS_FAILED[*]:-none}"
+echo "   Sessions attempted: ${NUM_SESSIONS}"
+echo "   Slot failures:      ${slot_failures}"
 
-# Regenerate index with all tracks
-if [[ ${#TRACKS_RUN[@]} -gt 0 ]]; then
+if [[ ${FAILED} -eq 0 ]]; then
     echo ""
     echo "── Regenerating site index..."
     "${PYTHON}" "${SCRIPT_DIR}/build_site.py" --index-only || true
@@ -195,10 +154,10 @@ if [[ ${#TRACKS_RUN[@]} -gt 0 ]]; then
         if git diff --cached --quiet; then
             echo "   No changes to commit."
         else
-            COMMIT_MSG="Sessions: ${DATE_STR} | tracks: ${TRACKS_RUN[*]}"
+            COMMIT_MSG="Sessions: ${DATE_STR} | ${NUM_SESSIONS} sessions (scored)"
             git commit -m "${COMMIT_MSG}"
             git push
-            echo "   ✓ Pushed to GitHub Pages"
+            echo "   Pushed to GitHub Pages"
         fi
         cd - > /dev/null
     else
@@ -212,8 +171,7 @@ echo "============================================================"
 echo "  Finished at $(date '+%Y-%m-%d %H:%M:%S %Z')"
 echo "============================================================"
 
-# Exit non-zero if any tracks failed
-if [[ ${#TRACKS_FAILED[@]} -gt 0 ]]; then
+if [[ ${FAILED} -ne 0 ]]; then
     exit 1
 fi
 exit 0

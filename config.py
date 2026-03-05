@@ -13,13 +13,14 @@ LOG_DIR     = os.path.join(BASE_DIR, "logs")
 
 # ── Fetch settings ─────────────────────────────────────────────────────────────
 LOOKBACK_HOURS   = 30     # articles published within this window
-MAX_ARTICLES     = 12     # cap per track per run
+MAX_ARTICLES     = 20     # cap per track per run (more candidates for scoring)
 MAX_ARTICLE_CHARS = 3500  # truncate body at this length
 USED_ARTICLES_PATH = os.path.join(os.path.expanduser("~/ai-courses"), "used_articles.json")
 USED_ARTICLES_MAX_AGE_DAYS = 7  # forget articles after this many days
 
 # ── Claude CLI settings ────────────────────────────────────────────────────────
-SESSIONS_PER_DAY = 3  # number of different sessions to generate per track per day
+SCORE_THRESHOLD     = 6   # minimum score (out of 10) for an article to get a session
+MAX_SESSIONS_PER_DAY = 5  # safety cap on sessions generated per day
 
 CLAUDE_MODEL   = "claude-opus-4-6"
 CLAUDE_TIMEOUT = 1800  # seconds (30 min — plenty of room for scheduled runs)
@@ -59,45 +60,6 @@ TRACKS = {
         ],
     },
 
-    "image-gen": {
-        "label": "Image & Video Generation",
-        "schedule": "mon,wed,fri",
-        "prompt_focus": (
-            "Focus on diffusion models, image generation, video AI, and vision models. "
-            "Cover new tools, techniques, and workflows. Prioritize things people can "
-            "actually try — new models, new platforms, creative pipelines."
-        ),
-        "feeds": [
-            {"url": "https://stability.ai/blog/rss.xml",                                    "tier": 1, "name": "Stability AI"},
-            {"url": "https://huggingface.co/blog/feed.xml",                                 "tier": 1, "name": "Hugging Face"},
-            {"url": "https://blogs.nvidia.com/blog/category/deep-learning/feed/",           "tier": 1, "name": "NVIDIA AI"},
-            {"url": "https://paperswithcode.com/rss/trend/computer-vision",                 "tier": 1, "name": "Papers With Code CV"},
-            {"url": "http://googleresearch.blogspot.com/atom.xml",                          "tier": 1, "name": "Google Research"},
-            {"url": "https://mshibanami.github.io/GitHubTrendingRSS/daily/python.xml",      "tier": 1, "name": "GitHub Trending Python"},
-            {"url": "https://hnrss.org/newest?q=AI+OR+LLM+OR+GPT+OR+Claude&points=50",    "tier": 1, "name": "Hacker News AI"},
-            {"url": "https://www.technologyreview.com/feed/",                               "tier": 2, "name": "MIT Tech Review"},
-            {"url": "https://www.wired.com/feed/tag/ai/rss",                               "tier": 2, "name": "Wired AI"},
-        ],
-    },
-
-    "audio": {
-        "label": "Audio AI",
-        "schedule": "tue,thu",
-        "prompt_focus": (
-            "Focus on text-to-speech, speech-to-text, speech synthesis, music generation, "
-            "and sound design AI. Cover new tools, models, and creative workflows. "
-            "Prioritize things people can try — new APIs, new models, interesting applications."
-        ),
-        "feeds": [
-            {"url": "https://elevenlabs.io/blog/rss",                         "tier": 1, "name": "ElevenLabs"},
-            {"url": "https://www.assemblyai.com/blog/rss",                    "tier": 1, "name": "AssemblyAI"},
-            {"url": "https://openai.com/blog/rss.xml",                        "tier": 1, "name": "OpenAI"},
-            {"url": "https://huggingface.co/blog/feed.xml",                   "tier": 1, "name": "Hugging Face"},
-            {"url": "https://mshibanami.github.io/GitHubTrendingRSS/daily/python.xml", "tier": 1, "name": "GitHub Trending Python"},
-            {"url": "https://hnrss.org/newest?q=AI+OR+LLM+OR+GPT+OR+Claude&points=50", "tier": 1, "name": "Hacker News AI"},
-            {"url": "https://www.technologyreview.com/feed/",                 "tier": 2, "name": "MIT Tech Review"},
-        ],
-    },
 }
 
 # ── GitHub repo for voting ───────────────────────────────────────────────────
@@ -169,9 +131,19 @@ IMPORTANT RULES:
 
 Output ONLY valid JSON matching the session schema. No markdown fences. No prose outside the JSON."""
 
-# Day-of-week mapping (Python weekday: 0=Mon, 6=Sun)
-SCHEDULE_DAYS = {
-    "daily":       {0, 1, 2, 3, 4, 5, 6},
-    "mon,wed,fri": {0, 2, 4},
-    "tue,thu":     {1, 3},
-}
+# ── Article scoring prompt ─────────────────────────────────────────────────
+SCORE_SYSTEM_PROMPT = """You are a technical editor evaluating AI-related articles for an educational workshop series aimed at AI practitioners.
+
+Score each article from 1 to 10 based on:
+- **Novelty** (is this genuinely new, or a rehash of known information?)
+- **Practical utility** (could a practitioner build something with this, or learn a useful technique?)
+- **Significance** (does this represent a meaningful development in the field?)
+
+Scoring guide:
+- 9-10: Major model release, breakthrough technique, or transformative new tool
+- 7-8: Noteworthy development with clear practical applications
+- 5-6: Interesting but incremental, or narrow audience
+- 3-4: Minor update, marketing fluff, or tangentially related
+- 1-2: Not relevant to AI practitioners
+
+Output ONLY valid JSON. No markdown fences. No prose outside the JSON."""
